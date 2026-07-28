@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PydanticAI — Agentic AI Deep Dive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base:     #0a0b14;
+    --bg-card:     #111224;
+    --bg-elevated: #181a30;
+    --bg-code:     #0d0f1e;
+    --border:      #1e2140;
+    --border-glow: #3a3d6b;
+
+    --purple-deep:  #1a1040;
+    --purple-mid:   #5b21b6;
+    --purple-soft:  #7c3aed;
+    --purple-light: #a78bfa;
+    --purple-glow:  #c4b5fd;
+
+    --blue-deep:    #0c1a3a;
+    --blue-mid:     #1d4ed8;
+    --blue-soft:    #3b82f6;
+    --blue-light:   #93c5fd;
+
+    --teal-mid:     #0d9488;
+    --teal-soft:    #14b8a6;
+    --teal-light:   #5eead4;
+
+    --pink-soft:    #ec4899;
+    --orange-soft:  #f97316;
+    --yellow-soft:  #fbbf24;
+    --green-soft:   #22c55e;
+    --red-soft:     #f87171;
+
+    --text-primary:   #f0f0ff;
+    --text-secondary: #9ca3c8;
+    --text-muted:     #5a6080;
+
+    --gradient-hero: linear-gradient(135deg, #1a0a40 0%, #0a1535 50%, #091428 100%);
+    --gradient-purple: linear-gradient(135deg, #5b21b6, #7c3aed);
+    --gradient-teal:   linear-gradient(135deg, #0d9488, #14b8a6);
+    --gradient-blue:   linear-gradient(135deg, #1d4ed8, #3b82f6);
+    --gradient-glow:   linear-gradient(135deg, #7c3aed22, #3b82f622);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── STAR FIELD ─── */
+  .stars-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 20% 30%, #1a0a4022 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 70%, #0a153522 0%, transparent 60%);
+  }
+  .stars-bg::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, #ffffff33 0%, transparent 100%),
+      radial-gradient(1px 1px at 25% 45%, #a78bfa44 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 20%, #ffffff22 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 55%, #93c5fd33 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 80%, #ffffff22 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 85% 10%, #5eead444 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 35%, #ffffff11 0%, transparent 100%),
+      radial-gradient(2px 2px at 15% 65%, #a78bfa22 0%, transparent 100%);
+  }
+
+  /* ─── LAYOUT ─── */
+  .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ─── HEADER ─── */
+  header {
+    padding: 56px 0 40px;
+    text-align: center;
+    position: relative;
+  }
+  .header-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #5b21b622, #3b82f622);
+    border: 1px solid #5b21b655;
+    border-radius: 999px;
+    padding: 6px 18px;
+    font-size: 12px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--purple-light);
+    margin-bottom: 24px;
+  }
+  .header-eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--purple-soft);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:.5; transform:scale(1.4); }
+  }
+  h1.hero-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #f0f0ff 0%, #a78bfa 40%, #5eead4 80%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .hero-sub {
+    font-size: 1.1rem; color: var(--text-secondary); max-width: 600px;
+    margin: 0 auto 0; line-height: 1.6;
+  }
+
+  /* ─── TABS ─── */
+  .tabs-nav {
+    display: flex; gap: 4px; padding: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin: 40px 0 32px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    flex: 1; min-width: 160px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px;
+    border: none; background: transparent; cursor: pointer;
+    border-radius: 10px;
+    font-family: 'Outfit', sans-serif; font-size: .9rem; font-weight: 600;
+    color: var(--text-muted);
+    transition: all .25s ease;
+    position: relative; overflow: hidden;
+  }
+  .tab-btn:hover { color: var(--text-secondary); background: var(--bg-elevated); }
+  .tab-btn.active {
+    color: #fff;
+    background: linear-gradient(135deg, #5b21b6, #3b82f6);
+    box-shadow: 0 4px 20px #5b21b655;
+  }
+  .tab-btn .tab-icon { font-size: 1.1em; }
+  .tab-content { display: none; animation: fadeSlide .35s ease; }
+  .tab-content.active { display: block; }
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── COMMON CONTENT ELEMENTS ─── */
+  .section-title {
+    font-size: 1.6rem; font-weight: 800; margin-bottom: 8px;
+    background: linear-gradient(90deg, #f0f0ff, #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .section-lead { color: var(--text-secondary); font-size: 1rem; margin-bottom: 28px; line-height: 1.6; }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+  }
+  .card:hover { border-color: var(--border-glow); transition: border-color .3s; }
+
+  h2.card-title {
+    font-size: 1.15rem; font-weight: 700; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2.card-title .icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1em; flex-shrink: 0;
+  }
+  .icon-purple { background: linear-gradient(135deg,#5b21b6,#7c3aed); }
+  .icon-teal   { background: linear-gradient(135deg,#0d9488,#14b8a6); }
+  .icon-blue   { background: linear-gradient(135deg,#1d4ed8,#3b82f6); }
+  .icon-pink   { background: linear-gradient(135deg,#be185d,#ec4899); }
+  .icon-orange { background: linear-gradient(135deg,#c2410c,#f97316); }
+
+  p.body-text { color: var(--text-secondary); line-height: 1.75; font-size: .95rem; margin-bottom: 10px; }
+  ul.feature-list { list-style: none; padding: 0; margin: 10px 0; }
+  ul.feature-list li {
+    padding: 7px 0 7px 22px; position: relative;
+    color: var(--text-secondary); font-size: .92rem; line-height: 1.5;
+  }
+  ul.feature-list li::before {
+    content: '▸'; position: absolute; left: 0;
+    color: var(--purple-light); font-size: .85em;
+  }
+
+  /* ─── CALLOUT BOXES ─── */
+  .callout {
+    border-radius: 12px; padding: 20px 24px; margin: 20px 0;
+    border-left: 4px solid;
+    position: relative; overflow: hidden;
+  }
+  .callout::before {
+    content: ''; position: absolute; inset: 0; opacity: .07;
+    background: currentColor;
+  }
+  .callout-purple { border-color: var(--purple-soft); color: var(--purple-light); background: #5b21b611; }
+  .callout-teal   { border-color: var(--teal-soft);   color: var(--teal-light);   background: #14b8a611; }
+  .callout-blue   { border-color: var(--blue-soft);   color: var(--blue-light);   background: #3b82f611; }
+  .callout-orange { border-color: var(--orange-soft); color: #fdba74;             background: #f9731611; }
+  .callout-green  { border-color: var(--green-soft);  color: #86efac;             background: #22c55e11; }
+  .callout-label {
+    font-size: .72rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 6px; opacity: .8;
+  }
+  .callout-text { font-size: .92rem; line-height: 1.65; color: var(--text-primary); }
+  .callout-text strong { color: inherit; }
+
+  /* ─── ARCHITECTURE DIAGRAM ─── */
+  .arch-diagram {
+    display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr;
+    gap: 0; align-items: center; margin: 24px 0;
+  }
+  .arch-box {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; text-align: center;
+  }
+  .arch-box .arch-label { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .arch-box .arch-name  { font-size: 1rem; font-weight: 700; margin: 6px 0 4px; }
+  .arch-box .arch-desc  { font-size: .78rem; color: var(--text-secondary); }
+  .arch-arrow { text-align: center; font-size: 1.4rem; color: var(--purple-light); }
+  .arch-box.highlight { border-color: var(--purple-soft); background: #5b21b611; }
+  .arch-box.highlight .arch-name { color: var(--purple-light); }
+
+  /* ─── FLOW STEPS ─── */
+  .flow-steps { margin: 16px 0; }
+  .flow-step {
+    display: flex; gap: 16px; padding: 14px 0; position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: ''; position: absolute;
+    left: 19px; top: 46px; bottom: -14px; width: 2px;
+    background: linear-gradient(to bottom, var(--purple-soft)55, transparent);
+  }
+  .flow-num {
+    width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg,#5b21b6,#7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 700;
+  }
+  .flow-body .flow-title { font-size: .95rem; font-weight: 600; margin-bottom: 4px; }
+  .flow-body .flow-desc  { font-size: .88rem; color: var(--text-secondary); line-height: 1.5; }
+
+  /* ─── COMPARISON TABLE ─── */
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .cmp-table th {
+    text-align: left; padding: 10px 14px;
+    background: var(--bg-elevated); color: var(--text-secondary);
+    font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cmp-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-secondary); line-height: 1.5; }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-table tr:hover td { background: var(--bg-elevated); }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: .75rem; font-weight: 600;
+  }
+  .badge-purple { background: #5b21b633; color: var(--purple-light); border: 1px solid #5b21b655; }
+  .badge-teal   { background: #0d948833; color: var(--teal-light);   border: 1px solid #0d948855; }
+  .badge-orange { background: #f9731622; color: #fdba74; border: 1px solid #f9731644; }
+  .badge-blue   { background: #3b82f622; color: var(--blue-light);   border: 1px solid #3b82f644; }
+
+  /* ─── CODE BLOCKS ─── */
+  .code-section { margin-bottom: 36px; }
+  .code-section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: #1a1c30; border: 1px solid var(--border);
+    border-bottom: none; border-radius: 12px 12px 0 0;
+  }
+  .code-section-title {
+    font-size: .95rem; font-weight: 700; display: flex; align-items: center; gap: 10px;
+  }
+  .code-file-badge {
+    font-size: .75rem; font-weight: 600;
+    background: #5b21b633; color: var(--purple-light);
+    border: 1px solid #5b21b655; border-radius: 6px; padding: 3px 10px;
+  }
+  .copy-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-muted); padding: 5px 12px; border-radius: 6px;
+    font-size: .75rem; cursor: pointer; font-family: 'Outfit', sans-serif;
+    transition: all .2s;
+  }
+  .copy-btn:hover { border-color: var(--purple-soft); color: var(--purple-light); }
+  pre.code-block {
+    background: var(--bg-code); border: 1px solid var(--border);
+    border-radius: 0 0 12px 12px; padding: 20px 24px;
+    overflow-x: auto; font-family: 'DM Mono', monospace; font-size: .82rem; line-height: 1.8;
+    tab-size: 4;
+  }
+  pre.code-block code { display: block; white-space: pre; }
+
+  /* Syntax highlight tokens */
+  .tk-kw    { color: #c084fc; }   /* keyword */
+  .tk-fn    { color: #60a5fa; }   /* function name */
+  .tk-cls   { color: #34d399; }   /* class name */
+  .tk-str   { color: #fbbf24; }   /* string */
+  .tk-num   { color: #f97316; }   /* number */
+  .tk-cmt   { color: #475569; font-style: italic; } /* comment */
+  .tk-deco  { color: #f472b6; }   /* decorator */
+  .tk-param { color: #e2e8f0; }   /* param */
+  .tk-attr  { color: #93c5fd; }   /* attribute/method */
+  .tk-op    { color: #94a3b8; }   /* operator */
+  .tk-type  { color: #5eead4; }   /* type hint */
+  .tk-base  { color: var(--text-primary); }
+
+  /* Annotation markers */
+  .ln-agent { background: #7c3aed18; border-left: 3px solid #7c3aed; margin-left:-24px; padding-left:21px; display:block; }
+  .ln-pydantic { background: #14b8a618; border-left: 3px solid #14b8a6; margin-left:-24px; padding-left:21px; display:block; }
+  .ln-async { background: #3b82f618; border-left: 3px solid #3b82f6; margin-left:-24px; padding-left:21px; display:block; }
+
+  /* Explanation panels */
+  .explain-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 16px; }
+  .explain-item {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 18px;
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .explain-num {
+    font-family: 'DM Mono', monospace; font-size: .75rem;
+    color: var(--purple-light); background: #5b21b622;
+    padding: 3px 8px; border-radius: 6px; flex-shrink: 0; margin-top: 2px;
+  }
+  .explain-text { font-size: .88rem; color: var(--text-secondary); line-height: 1.6; }
+  .explain-text strong { color: var(--text-primary); }
+
+  /* Agent vs API legend */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--text-secondary); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .swatch-agent { background: #7c3aed55; border: 2px solid #7c3aed; }
+  .swatch-pydantic { background: #14b8a655; border: 2px solid #14b8a6; }
+  .swatch-async { background: #3b82f655; border: 2px solid #3b82f6; }
+
+  /* ─── ASSESSMENT ─── */
+  .question-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 28px; margin-bottom: 20px;
+  }
+  .q-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+  .q-num {
+    width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(135deg,#1d4ed8,#3b82f6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 700;
+  }
+  .q-text { font-size: .98rem; font-weight: 600; line-height: 1.5; }
+  .options { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .option-btn {
+    width: 100%; text-align: left; padding: 11px 16px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 9px; cursor: pointer; font-family: 'Outfit', sans-serif;
+    font-size: .9rem; color: var(--text-secondary); transition: all .2s;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .option-btn:hover { border-color: var(--blue-soft); color: var(--text-primary); }
+  .option-btn.correct { border-color: var(--green-soft); background: #22c55e11; color: #86efac; }
+  .option-btn.wrong   { border-color: var(--red-soft);   background: #ef444411; color: #fca5a5; }
+  .option-btn.reveal-correct { border-color: var(--green-soft); background: #22c55e11; color: #86efac; }
+  .option-letter {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: var(--border); display: flex; align-items: center;
+    justify-content: center; font-size: .77rem; font-weight: 700; flex-shrink: 0;
+  }
+  .feedback {
+    margin-top: 10px; padding: 10px 14px; border-radius: 8px;
+    font-size: .88rem; display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback.correct-fb { background: #22c55e11; border: 1px solid #22c55e55; color: #86efac; }
+  .feedback.wrong-fb   { background: #ef444411; border: 1px solid #ef444455; color: #fca5a5; }
+
+  .scenario-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 28px; margin-bottom: 20px;
+  }
+  .scenario-label {
+    font-size: .72rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--teal-light); margin-bottom: 6px;
+  }
+  .scenario-q { font-size: .98rem; font-weight: 600; line-height: 1.5; margin-bottom: 14px; }
+  .scenario-input {
+    width: 100%; background: var(--bg-code); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; font-family: 'Outfit', sans-serif;
+    font-size: .9rem; color: var(--text-primary); resize: vertical; min-height: 80px;
+    transition: border-color .2s;
+  }
+  .scenario-input:focus { outline: none; border-color: var(--teal-soft); }
+
+  .answer-key-section {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; margin-top: 32px; overflow: hidden;
+  }
+  .answer-key-toggle {
+    width: 100%; padding: 20px 28px; background: linear-gradient(135deg,#5b21b6,#3b82f6);
+    border: none; cursor: pointer; font-family: 'Outfit', sans-serif;
+    font-size: 1rem; font-weight: 700; color: #fff; text-align: left;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .answer-key-toggle .chevron { transition: transform .3s; font-size: 1.2em; }
+  .answer-key-toggle.open .chevron { transform: rotate(180deg); }
+  .answer-key-body { display: none; padding: 24px 28px; }
+  .answer-key-body.open { display: block; }
+  .ak-item { margin-bottom: 20px; }
+  .ak-q { font-size: .85rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+  .ak-a { font-size: .9rem; color: var(--text-primary); line-height: 1.6; }
+  .ak-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 700;
+    margin-right: 6px; margin-bottom: 4px; vertical-align: middle;
+  }
+  .ak-correct { background: #22c55e22; color: #86efac; border: 1px solid #22c55e44; }
+
+  /* ─── SCORE DISPLAY ─── */
+  .score-bar {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 24px; margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .score-label { font-size: .85rem; color: var(--text-secondary); }
+  .score-value { font-size: 1.5rem; font-weight: 800; color: var(--purple-light); }
+  .score-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .score-fill {
+    height: 100%; background: linear-gradient(90deg,#5b21b6,#3b82f6);
+    border-radius: 4px; transition: width .6s ease; width: 0;
+  }
+  .reset-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    padding: 8px 18px; border-radius: 8px; cursor: pointer;
+    font-family: 'Outfit', sans-serif; font-size: .85rem; transition: all .2s;
+  }
+  .reset-btn:hover { border-color: var(--purple-soft); color: var(--purple-light); }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    border: none; border-top: 1px solid var(--border); margin: 28px 0;
+  }
+
+  /* ─── GRID 2 COL ─── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ─── ASYNC COMPARISON ─── */
+  .async-comparison {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 16px 0;
+  }
+  @media(max-width:700px) { .async-comparison { grid-template-columns: 1fr; } }
+  .async-box {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; text-align: center;
+  }
+  .async-box .method-name { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .async-box .method-time { font-size: 1.6rem; font-weight: 900; }
+  .async-box .method-desc { font-size: .78rem; color: var(--text-secondary); margin-top: 4px; }
+  .async-box.winner { border-color: var(--teal-soft); background: #14b8a611; }
+  .async-box.winner .method-time { color: var(--teal-light); }
+
+  /* ─── FOOTER ─── */
+  footer {
+    text-align: center; padding: 40px 0 32px;
+    font-size: .8rem; color: var(--text-muted); border-top: 1px solid var(--border);
+    margin-top: 48px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media(max-width:640px) {
+    .arch-diagram { grid-template-columns: 1fr; }
+    .arch-arrow { transform: rotate(90deg); }
+    .tabs-nav { flex-direction: column; }
+    .tab-btn { min-width: auto; }
+    pre.code-block { font-size: .75rem; }
+  }
+</style>
+</head>
+<body>
+<div class="stars-bg"></div>
+
+<div class="wrapper">
+  <header>
+    <div class="header-eyebrow"><span class="dot"></span>AI/ML Education Series · Module 4.1</div>
+    <h1 class="hero-title">PydanticAI &amp;<br>Agentic Patterns</h1>
+    <p class="hero-sub">A deep dive into Pydantic data validation, PydanticAI Agents, and Async execution patterns — from zero to production-ready orchestration.</p>
+  </header>
+
+  <nav class="tabs-nav" role="tablist">
+    <button class="tab-btn active" onclick="switchTab('theory', this)" role="tab">
+      <span class="tab-icon">🧠</span> Theory &amp; Concepts
+    </button>
+    <button class="tab-btn" onclick="switchTab('code', this)" role="tab">
+      <span class="tab-icon">💻</span> Code Walkthrough
+    </button>
+    <button class="tab-btn" onclick="switchTab('assess', this)" role="tab">
+      <span class="tab-icon">📝</span> Assessment
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 1 — THEORY
+  ════════════════════════════════════════════════════════ -->
+  <div id="tab-theory" class="tab-content active">
+
+    <p class="section-lead">This module covers three interlocking layers: <strong>Pydantic</strong> (data validation), <strong>PydanticAI</strong> (the Agent framework on top), and <strong>AsyncIO</strong> (high-throughput LLM calls). Let's build your mental model from the ground up.</p>
+
+    <!-- LAYER 1: PYDANTIC -->
+    <div class="card">
+      <h2 class="card-title">
+        <span class="icon icon-teal">📦</span>
+        Layer 1 — Pydantic: The Foundation
+      </h2>
+      <p class="body-text">Before we can talk about AI Agents, we need to understand <strong>why Pydantic matters</strong>. LLMs return raw text. Pydantic turns that text into safe, typed, validated Python objects.</p>
+
+      <div class="callout callout-purple">
+        <div class="callout-label">⚡ Core Definition</div>
+        <div class="callout-text"><strong>Pydantic</strong> is a Python library that enforces <em>data types and constraints</em> at runtime using Python type hints. It is the backbone of structured output in modern LLM applications. Think of it as a <em>bouncer</em> at the door of your data — only valid data gets through.</div>
+      </div>
+
+      <h3 style="font-size:.95rem;font-weight:700;margin:20px 0 10px;color:var(--purple-light)">Evolution: 3 Ways to Model Data</h3>
+      <table class="cmp-table">
+        <thead><tr><th>Approach</th><th>Boilerplate</th><th>Type Validation?</th><th>JSON Schema?</th><th>Best For</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-orange">Classical Class</span></td><td>High (manual __init__, __repr__, __eq__)</td><td>❌ None</td><td>❌</td><td>Custom OOP logic</td></tr>
+          <tr><td><span class="badge badge-blue">@dataclass</span></td><td>Low (auto-generated)</td><td>⚠️ Hints only (not enforced)</td><td>❌</td><td>Simple value containers</td></tr>
+          <tr><td><span class="badge badge-teal">Pydantic BaseModel</span></td><td>Minimal</td><td>✅ Runtime enforcement</td><td>✅ Auto-generated</td><td>LLM outputs, APIs, configs</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-orange" style="margin-top:16px">
+        <div class="callout-label">⚠️ Critical Gotcha: dataclass vs Pydantic</div>
+        <div class="callout-text"><code>@dataclass</code> from Python's standard library uses type hints as <em>documentation only</em>. You can write <code>Product("Laptop", 3.5, 200)</code> and Python happily accepts <code>3.5</code> for an <code>int</code> field. Pydantic <em>actually validates</em> — a non-integer will raise a <code>ValidationError</code>.</div>
+      </div>
+    </div>
+
+    <!-- PYDANTIC USE-CASES -->
+    <div class="grid-2">
+      <div class="card" style="margin-bottom:0">
+        <h2 class="card-title"><span class="icon icon-blue">🔍</span> Auto-Validation</h2>
+        <p class="body-text">Pydantic validates <em>on instantiation</em>. It also attempts smart coercion: the string <code>"3"</code> can become the integer <code>3</code>. But <code>3.5</code> cannot safely become <code>int</code> — that fails.</p>
+        <ul class="feature-list">
+          <li>Type coercion where safe (str → int for <code>"3"</code>)</li>
+          <li>Raises <code>ValidationError</code> on bad data</li>
+          <li><code>ge=1, le=5</code> enforces value ranges (e.g., star ratings)</li>
+          <li><code>Field(...)</code> marks a field as required (no default)</li>
+        </ul>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <h2 class="card-title"><span class="icon icon-teal">🔄</span> Auto-Serialization</h2>
+        <p class="body-text">Pydantic models know how to convert themselves to JSON and back — a critical feature when sending structured data to/from LLMs.</p>
+        <ul class="feature-list">
+          <li><code>.model_dump()</code> → Python dict</li>
+          <li><code>.model_dump_json()</code> → JSON string (content)</li>
+          <li><code>.model_json_schema()</code> → JSON Schema (structure)</li>
+          <li>JSON Schema is what gets sent to LLMs for function calling</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2 class="card-title"><span class="icon icon-pink">🏗️</span> Nested Models &amp; Complex Structures</h2>
+      <p class="body-text">Real-world data is hierarchical. Pydantic handles this naturally: a <code>Restaurant</code> contains an <code>Owner</code>, an <code>Address</code>, and a list of <code>Employee</code> objects — all validated recursively.</p>
+      <div class="callout callout-teal">
+        <div class="callout-label">🔑 Why This Matters for LLMs</div>
+        <div class="callout-text">When you define a nested Pydantic model as your agent's <strong>result type</strong>, PydanticAI automatically generates a JSON Schema from it. This schema is sent to the LLM as a <em>function signature</em>, forcing the model to return structured, parseable data — not free-form text. This is the bridge between "AI that talks" and "AI that integrates."</div>
+      </div>
+      <ul class="feature-list">
+        <li><code>EmailStr</code> — validates email format</li>
+        <li><code>HttpUrl</code> — validates URL format</li>
+        <li><code>PositiveInt</code> — enforces positive integers</li>
+        <li><code>Optional[List[str]]</code> — nested type annotations with defaults</li>
+      </ul>
+    </div>
+
+    <hr class="divider">
+
+    <!-- LAYER 2: PYDANTIC AI AGENT -->
+    <div class="card">
+      <h2 class="card-title"><span class="icon icon-purple">🤖</span> Layer 2 — PydanticAI: The Agent Framework</h2>
+      <p class="body-text"><strong>PydanticAI</strong> is an open-source framework (by the Pydantic team) that wraps LLM calls in a structured, type-safe shell. It creates <em>Agents</em> — stateful orchestrators that run an LLM with instructions, tools, and structured output.</p>
+
+      <div class="callout callout-purple">
+        <div class="callout-label">⚡ Definition: What is an AI Agent?</div>
+        <div class="callout-text">An <strong>Agent</strong> is a program that perceives its environment (via inputs/tools), reasons (via an LLM), and acts (via tool calls or producing outputs) — potentially across multiple turns until a goal is reached. Unlike a single API call, an agent can <em>loop, plan, and self-correct</em>.</div>
+      </div>
+
+      <h3 style="font-size:.95rem;font-weight:700;margin:20px 0 10px;color:var(--purple-light)">PydanticAI Agent Architecture</h3>
+      <div class="arch-diagram">
+        <div class="arch-box">
+          <div class="arch-label">Input</div>
+          <div class="arch-name" style="color:var(--blue-light)">User Prompt</div>
+          <div class="arch-desc">Text or structured input passed to agent.run()</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box highlight">
+          <div class="arch-label">Core</div>
+          <div class="arch-name">Agent</div>
+          <div class="arch-desc">LLM model + instructions + result type + tools</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box">
+          <div class="arch-label">Output</div>
+          <div class="arch-name" style="color:var(--teal-light)">RunResult</div>
+          <div class="arch-desc">.output (typed), .usage() (tokens), .all_messages()</div>
+        </div>
+      </div>
+
+      <h3 style="font-size:.95rem;font-weight:700;margin:20px 0 10px;color:var(--purple-light)">What <code>Agent(...)</code> Configures</h3>
+      <ul class="feature-list">
+        <li><strong>Model string</strong> — e.g., <code>'ollama:llama3-groq-tool-use:8b'</code> or <code>'groq:llama-3.3-70b-versatile'</code>. PydanticAI abstracts over multiple providers.</li>
+        <li><strong>instructions</strong> — the system prompt; sets the agent's persona and constraints.</li>
+        <li><strong>result_type</strong> (optional) — a Pydantic model that the LLM output is validated against. Forces structured output.</li>
+        <li><strong>tools</strong> (optional) — Python functions the agent can call during its reasoning loop.</li>
+      </ul>
+
+      <div class="callout callout-blue">
+        <div class="callout-label">🔑 Agentic Pattern: Instructions + Result Type</div>
+        <div class="callout-text">The combination of <code>instructions</code> (system prompt) and a typed <code>result_type</code> is the simplest Agent pattern — analogous to <strong>ReAct's "Reason → Act"</strong> loop compressed into a single call. The model reasons in its hidden chain-of-thought and produces a validated structured action (the output).</div>
+      </div>
+    </div>
+
+    <!-- LAYER 3: SYNC vs ASYNC -->
+    <div class="card">
+      <h2 class="card-title"><span class="icon icon-blue">⚡</span> Layer 3 — Sync vs Async Execution Modes</h2>
+      <p class="body-text">LLM calls are <em>I/O-bound</em> — your CPU sits idle waiting for the network. This makes them perfect candidates for <strong>asynchronous execution</strong>, which lets you fire many calls concurrently without using multiple CPU cores.</p>
+
+      <div class="callout callout-blue">
+        <div class="callout-label">📚 Definition: Async I/O</div>
+        <div class="callout-text"><strong>AsyncIO</strong> uses a single-threaded <em>event loop</em> that can switch between tasks while they wait for I/O. Instead of "Thread 1 waits while Thread 2 runs," it's "one thread does useful work for Task B while Task A is waiting for the network." The keywords <code>async def</code> and <code>await</code> mark these suspension points.</div>
+      </div>
+
+      <h3 style="font-size:.95rem;font-weight:700;margin:20px 0 10px;color:var(--purple-light)">4 Execution Strategies (from the code)</h3>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-num">A</div>
+          <div class="flow-body">
+            <div class="flow-title"><code>agent.run_sync()</code> — Sequential Blocking</div>
+            <div class="flow-desc">Each LLM call blocks until complete. 100 calls = 100× latency. Simple but slow. Use only for scripts or when parallelism is not needed.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">B</div>
+          <div class="flow-body">
+            <div class="flow-title"><code>await agent.run()</code> — Sequential Async</div>
+            <div class="flow-desc">Async syntax, but still runs calls one after another in a loop. The event loop <em>could</em> do other work, but this code doesn't leverage that. Similar total time to (A).</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">C</div>
+          <div class="flow-body">
+            <div class="flow-title"><code>asyncio.gather(*tasks)</code> — Concurrent Batch ⭐</div>
+            <div class="flow-desc">All 10 tasks are created as coroutines, then all fired <em>simultaneously</em>. Total time ≈ single call latency (not 10×). This is the true power of async for LLM workloads.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">D</div>
+          <div class="flow-body">
+            <div class="flow-title"><code>ThreadPoolExecutor</code> — Multi-threading</div>
+            <div class="flow-desc">Runs <code>run_sync</code> in 100 OS threads simultaneously. Works around Python's GIL for I/O-bound tasks. Good for integrating with sync-only libraries. Heavier than asyncio (each thread = OS overhead).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="async-comparison">
+        <div class="async-box">
+          <div class="method-name" style="color:var(--red-soft)">Sequential Sync</div>
+          <div class="method-time" style="color:var(--red-soft)">~100s</div>
+          <div class="method-desc">100 calls × 1s each</div>
+        </div>
+        <div class="async-box winner">
+          <div class="method-name">Async Gather</div>
+          <div class="method-time">~1–2s</div>
+          <div class="method-desc">All calls in parallel ✨</div>
+        </div>
+        <div class="async-box">
+          <div class="method-name" style="color:var(--blue-light)">ThreadPool</div>
+          <div class="method-time" style="color:var(--blue-light)">~2–5s</div>
+          <div class="method-desc">Concurrent but heavier</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGFIRE -->
+    <div class="card">
+      <h2 class="card-title"><span class="icon icon-orange">📊</span> Observability: Logfire</h2>
+      <p class="body-text">Every file in the codebase uses <code>logfire</code>. This is PydanticAI's built-in <strong>observability integration</strong> — it traces every agent run, LLM call, tool invocation, and token usage to a dashboard.</p>
+      <div class="callout callout-orange">
+        <div class="callout-label">🏗️ Agentic Pattern: Observability</div>
+        <div class="callout-text">Production AI systems are <em>black boxes</em> without tracing. <code>logfire.instrument_pydantic_ai()</code> auto-instruments the agent loop — recording inputs, outputs, latencies, and costs for every call. This is essential for debugging complex multi-step agents.</div>
+      </div>
+    </div>
+
+  </div><!-- end tab-theory -->
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 2 — CODE WALKTHROUGH
+  ════════════════════════════════════════════════════════ -->
+  <div id="tab-code" class="tab-content">
+
+    <p class="section-lead">Six key scripts, fully annotated. Color-coded highlights show where <span style="color:#a78bfa">Agent logic</span>, <span style="color:#5eead4">Pydantic validation</span>, and <span style="color:#93c5fd">Async patterns</span> live.</p>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch swatch-agent"></div> Agent / LLM orchestration</div>
+      <div class="legend-item"><div class="legend-swatch swatch-pydantic"></div> Pydantic data layer</div>
+      <div class="legend-item"><div class="legend-swatch swatch-async"></div> Async / concurrency</div>
+    </div>
+
+    <!-- ── Script 1: sync.py ── -->
+    <div class="code-section">
+      <div class="code-section-header">
+        <div class="code-section-title">
+          <span style="color:var(--purple-light)">01</span>
+          Basic Synchronous Agent
+          <span class="code-file-badge">4.1.2/sync.py</span>
+        </div>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre class="code-block"><code id="code1"><span class="ln-pydantic"><span class="tk-kw">from</span> <span class="tk-cls">dotenv</span> <span class="tk-kw">import</span> <span class="tk-fn">load_dotenv</span>   <span class="tk-cmt"># Loads .env file → reads API keys into os.environ</span></span>
+<span class="ln-agent"><span class="tk-kw">from</span> <span class="tk-cls">pydantic_ai</span> <span class="tk-kw">import</span> <span class="tk-cls">Agent</span>       <span class="tk-cmt"># Core Agent class — the main abstraction</span></span>
+<span class="tk-kw">import</span> <span class="tk-cls">logfire</span>                       <span class="tk-cmt"># Observability / tracing platform</span>
+
+<span class="tk-fn">load_dotenv</span>(<span class="tk-param">override</span><span class="tk-op">=</span><span class="tk-cls">True</span>)            <span class="tk-cmt"># Parse .env; override=True forces env refresh</span>
+<span class="tk-cls">logfire</span>.<span class="tk-fn">configure</span>()                   <span class="tk-cmt"># Initialize logfire SDK with credentials</span>
+<span class="tk-cls">logfire</span>.<span class="tk-fn">instrument_pydantic_ai</span>()      <span class="tk-cmt"># Monkey-patches Agent to auto-trace every call</span>
+
+<span class="ln-agent"><span class="tk-base">agent</span> <span class="tk-op">=</span> <span class="tk-cls">Agent</span>(</span>
+<span class="ln-agent">    <span class="tk-str">'ollama:llama3-groq-tool-use:8b'</span>,  <span class="tk-cmt"># Model string: provider:model-name. PydanticAI</span></span>
+<span class="ln-agent">    <span class="tk-cmt">#'groq:llama-3.3-70b-versatile',</span>   <span class="tk-cmt"># abstracts Ollama, Groq, OpenAI, Anthropic etc.</span></span>
+<span class="ln-agent">    <span class="tk-param">instructions</span><span class="tk-op">=</span><span class="tk-str">"You are a helpful assistant."</span>,</span>
+<span class="ln-agent">)                                       <span class="tk-cmt"># instructions = system prompt for every run</span></span>
+
+<span class="ln-agent"><span class="tk-base">response</span> <span class="tk-op">=</span> <span class="tk-base">agent</span>.<span class="tk-fn">run_sync</span>(<span class="tk-str">"Write a haiku about recursion in programming."</span>)</span>
+<span class="tk-cmt"># run_sync: blocks the current thread until LLM responds (no async needed)</span>
+<span class="tk-cmt"># Returns a RunResult object — NOT the raw text</span>
+
+<span class="tk-fn">print</span>(<span class="tk-base">response</span>.<span class="tk-attr">output</span>)             <span class="tk-cmt"># .output: the validated/typed response text</span>
+<span class="tk-fn">print</span>(<span class="tk-base">response</span>.<span class="tk-fn">usage</span>())             <span class="tk-cmt"># .usage(): token counts (prompt + completion)</span></code></pre>
+      <div class="explain-grid">
+        <div class="explain-item">
+          <span class="explain-num">Agent()</span>
+          <span class="explain-text"><strong>This is the Agent definition</strong> — the heart of agentic logic. The model string uses a <code>provider:model</code> format. PydanticAI routes this to the correct API client under the hood. Swapping providers is a one-line change.</span>
+        </div>
+        <div class="explain-item">
+          <span class="explain-num">run_sync()</span>
+          <span class="explain-text"><strong>Synchronous execution</strong>: wraps an async call internally but blocks the caller. Use this in scripts, Jupyter notebooks, or anywhere you can't use <code>await</code>. Not suitable for high-throughput production pipelines.</span>
+        </div>
+        <div class="explain-item">
+          <span class="explain-num">.output</span>
+          <span class="explain-text"><strong>Typed result</strong>: if no <code>result_type</code> is specified, this is a plain string. If you set <code>result_type=MyPydanticModel</code>, this would be a fully validated Python object — the powerful integration of Pydantic + Agent.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Script 2: async.py ── -->
+    <div class="code-section">
+      <div class="code-section-header">
+        <div class="code-section-title">
+          <span style="color:var(--blue-light)">02</span>
+          Asynchronous Agent Run
+          <span class="code-file-badge">4.1.2/async.py</span>
+        </div>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre class="code-block"><code id="code2"><span class="ln-async"><span class="tk-kw">import</span> <span class="tk-cls">asyncio</span>                        <span class="tk-cmt"># Python's built-in async event loop library</span></span>
+<span class="tk-kw">from</span> <span class="tk-cls">dotenv</span> <span class="tk-kw">import</span> <span class="tk-fn">load_dotenv</span>
+<span class="ln-agent"><span class="tk-kw">from</span> <span class="tk-cls">pydantic_ai</span> <span class="tk-kw">import</span> <span class="tk-cls">Agent</span></span>
+<span class="tk-kw">import</span> <span class="tk-cls">logfire</span>
+
+<span class="tk-fn">load_dotenv</span>(<span class="tk-param">override</span><span class="tk-op">=</span><span class="tk-cls">True</span>)
+<span class="tk-cls">logfire</span>.<span class="tk-fn">configure</span>()
+<span class="tk-cls">logfire</span>.<span class="tk-fn">instrument_pydantic_ai</span>()
+
+<span class="ln-agent"><span class="tk-base">agent</span> <span class="tk-op">=</span> <span class="tk-cls">Agent</span>(</span>
+<span class="ln-agent">    <span class="tk-str">'ollama:llama3-groq-tool-use:8b'</span>,</span>
+<span class="ln-agent">    <span class="tk-param">instructions</span><span class="tk-op">=</span><span class="tk-str">"You are a helpful assistant."</span>,</span>
+<span class="ln-agent">)</span>
+
+<span class="ln-async"><span class="tk-kw">async def</span> <span class="tk-fn">main</span>():                       <span class="tk-cmt"># Must be 'async def' to use await inside</span></span>
+<span class="ln-agent">    <span class="tk-base">response</span> <span class="tk-op">=</span> <span class="tk-kw">await</span> <span class="tk-base">agent</span>.<span class="tk-fn">run</span>(<span class="tk-str">"Write a haiku about recursion in programming."</span>)</span>
+<span class="tk-cmt">    # 'await' suspends this coroutine while the LLM responds,</span>
+<span class="tk-cmt">    # freeing the event loop to run other coroutines concurrently.</span>
+<span class="tk-cmt">    # agent.run() is the native async version of run_sync()</span>
+    <span class="tk-fn">print</span>(<span class="tk-base">response</span>.<span class="tk-attr">output</span>)
+    <span class="tk-fn">print</span>(<span class="tk-base">response</span>.<span class="tk-fn">usage</span>())
+
+<span class="ln-async"><span class="tk-cls">asyncio</span>.<span class="tk-fn">run</span>(<span class="tk-fn">main</span>())                   <span class="tk-cmt"># Creates event loop + runs main() to completion</span></span>
+<span class="tk-cmt"># asyncio.run() is the entry point from synchronous code into the async world</span></code></pre>
+      <div class="explain-grid">
+        <div class="explain-item">
+          <span class="explain-num">async def</span>
+          <span class="explain-text"><strong>Coroutine declaration</strong>: <code>async def</code> creates a coroutine function. Calling it doesn't execute it — it returns a coroutine object. Only <code>await</code>-ing it executes it on the event loop.</span>
+        </div>
+        <div class="explain-item">
+          <span class="explain-num">await agent.run()</span>
+          <span class="explain-text"><strong>The native async call</strong>: This is functionally identical to <code>run_sync()</code> in a single-call scenario. But because it's truly async, you can run multiple of these concurrently (see next script).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Script 3: c_async_llm_calls.py ── -->
+    <div class="code-section">
+      <div class="code-section-header">
+        <div class="code-section-title">
+          <span style="color:var(--teal-light)">03</span>
+          Concurrent Batch Calls — asyncio.gather ⭐
+          <span class="code-file-badge">4.1.3/c_async_llm_calls.py</span>
+        </div>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre class="code-block"><code id="code3"><span class="ln-async"><span class="tk-kw">import</span> <span class="tk-cls">asyncio</span></span>
+<span class="tk-kw">from</span> <span class="tk-cls">dotenv</span> <span class="tk-kw">import</span> <span class="tk-fn">load_dotenv</span>
+<span class="ln-agent"><span class="tk-kw">from</span> <span class="tk-cls">pydantic_ai</span> <span class="tk-kw">import</span> <span class="tk-cls">Agent</span></span>
+<span class="tk-kw">import</span> <span class="tk-cls">logfire</span>, <span class="tk-cls">time</span>
+
+<span class="tk-fn">load_dotenv</span>(<span class="tk-param">override</span><span class="tk-op">=</span><span class="tk-cls">True</span>)
+<span class="tk-cls">logfire</span>.<span class="tk-fn">configure</span>()
+<span class="tk-cls">logfire</span>.<span class="tk-fn">instrument_pydantic_ai</span>()
+
+<span class="ln-agent"><span class="tk-base">agent</span> <span class="tk-op">=</span> <span class="tk-cls">Agent</span>(</span>
+<span class="ln-agent">    <span class="tk-str">'ollama:llama3-groq-tool-use:8b'</span>,</span>
+<span class="ln-agent">    <span class="tk-param">instructions</span><span class="tk-op">=</span><span class="tk-str">"You are a helpful AI assistant"</span>,</span>
+<span class="ln-agent">)</span>
+
+<span class="ln-async"><span class="tk-kw">async def</span> <span class="tk-fn">main</span>() <span class="tk-op">-></span> <span class="tk-type">None</span>:</span>
+<span class="ln-async">    <span class="tk-base">tasks</span> <span class="tk-op">=</span> [<span class="tk-base">agent</span>.<span class="tk-fn">run</span>(<span class="tk-str">"what is the capital of india. Just answer in one word"</span>) <span class="tk-kw">for</span> _ <span class="tk-kw">in</span> <span class="tk-fn">range</span>(<span class="tk-num">10</span>)]</span>
+    <span class="tk-cmt">    # List comprehension creates 10 coroutines (NOT started yet!)</span>
+    <span class="tk-cmt">    # This is key: agent.run() without await just creates a coroutine object</span>
+
+<span class="ln-async">    <span class="tk-base">values</span> <span class="tk-op">=</span> <span class="tk-kw">await</span> <span class="tk-cls">asyncio</span>.<span class="tk-fn">gather</span>(<span class="tk-op">*</span><span class="tk-base">tasks</span>)</span>
+    <span class="tk-cmt">    # asyncio.gather() starts ALL 10 coroutines simultaneously on the event loop.</span>
+    <span class="tk-cmt">    # The event loop fires call 1, call 2, ..., call 10 — all "in flight" at once.</span>
+    <span class="tk-cmt">    # Each one suspends at the network I/O point, letting others proceed.</span>
+    <span class="tk-cmt">    # Total wall-clock time ≈ slowest single call (not 10× single call)</span>
+
+    <span class="tk-fn">print</span>(<span class="tk-op">*</span><span class="tk-base">values</span>)                     <span class="tk-cmt"># Unpack and print all 10 RunResult objects</span>
+
+<span class="tk-base">start_time</span> <span class="tk-op">=</span> <span class="tk-cls">time</span>.<span class="tk-fn">perf_counter</span>()      <span class="tk-cmt"># High-precision timer — better than time.time()</span>
+<span class="ln-async"><span class="tk-cls">asyncio</span>.<span class="tk-fn">run</span>(<span class="tk-fn">main</span>())</span>
+<span class="tk-base">end_time</span> <span class="tk-op">=</span> <span class="tk-cls">time</span>.<span class="tk-fn">perf_counter</span>()
+<span class="tk-fn">print</span>(<span class="tk-str">f"Time taken(Async-batch): {end_time - start_time:.2f} seconds"</span>)</code></pre>
+      <div class="explain-grid">
+        <div class="explain-item">
+          <span class="explain-num">tasks list</span>
+          <span class="explain-text"><strong>Creating coroutines without starting them</strong>: <code>agent.run(...)</code> returns a coroutine object. The list comprehension creates 10 of these objects but executes <em>none</em> of them yet. This is the "lazy evaluation" behavior of Python coroutines.</span>
+        </div>
+        <div class="explain-item">
+          <span class="explain-num">asyncio.gather()</span>
+          <span class="explain-text"><strong>The key to concurrency</strong>: <code>gather(*tasks)</code> schedules all coroutines on the event loop simultaneously. When LLM call #1 awaits a network response, the loop immediately starts executing LLM call #2, #3, etc. This achieves ~10× speedup for I/O-bound workloads.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Script 4: d_mt_llm_calls.py ── -->
+    <div class="code-section">
+      <div class="code-section-header">
+        <div class="code-section-title">
+          <span style="color:var(--blue-light)">04</span>
+          Multi-threaded LLM Calls
+          <span class="code-file-badge">4.1.3/d_mt_llm_calls.py</span>
+        </div>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre class="code-block"><code id="code4"><span class="ln-async"><span class="tk-kw">import</span> <span class="tk-cls">concurrent</span>.<span class="tk-cls">futures</span>           <span class="tk-cmt"># Standard library for thread/process pools</span></span>
+<span class="tk-kw">from</span> <span class="tk-cls">dotenv</span> <span class="tk-kw">import</span> <span class="tk-fn">load_dotenv</span>
+<span class="ln-agent"><span class="tk-kw">from</span> <span class="tk-cls">pydantic_ai</span> <span class="tk-kw">import</span> <span class="tk-cls">Agent</span></span>
+<span class="tk-kw">import</span> <span class="tk-cls">logfire</span>, <span class="tk-cls">time</span>
+
+<span class="tk-fn">load_dotenv</span>(<span class="tk-param">override</span><span class="tk-op">=</span><span class="tk-cls">True</span>)
+<span class="tk-cls">logfire</span>.<span class="tk-fn">configure</span>()
+<span class="tk-cls">logfire</span>.<span class="tk-fn">instrument_pydantic_ai</span>()
+
+<span class="ln-agent"><span class="tk-base">agent</span> <span class="tk-op">=</span> <span class="tk-cls">Agent</span>(</span>
+<span class="ln-agent">    <span class="tk-str">'ollama:llama3-groq-tool-use:8b'</span>,</span>
+<span class="ln-agent">    <span class="tk-param">instructions</span><span class="tk-op">=</span><span class="tk-str">"You are a helpful AI assistant"</span>,</span>
+<span class="ln-agent">)</span>
+
+<span class="tk-kw">def</span> <span class="tk-fn">run_agent</span>(<span class="tk-param">i</span>):                      <span class="tk-cmt"># Regular (sync) function — called from each thread</span>
+    <span class="tk-kw">return</span> <span class="tk-base">agent</span>.<span class="tk-fn">run_sync</span>(<span class="tk-str">"what is the capital of india. Just answer in one word"</span>)
+
+<span class="tk-kw">def</span> <span class="tk-fn">main</span>() <span class="tk-op">-></span> <span class="tk-type">None</span>:
+<span class="ln-async">    <span class="tk-kw">with</span> <span class="tk-cls">concurrent</span>.<span class="tk-cls">futures</span>.<span class="tk-cls">ThreadPoolExecutor</span>(<span class="tk-param">max_workers</span><span class="tk-op">=</span><span class="tk-num">100</span>) <span class="tk-kw">as</span> <span class="tk-base">executor</span>:</span>
+        <span class="tk-cmt">        # Creates a pool of up to 100 OS threads.</span>
+        <span class="tk-cmt">        # Each thread independently calls run_agent(i)</span>
+
+<span class="ln-async">        <span class="tk-base">futures</span> <span class="tk-op">=</span> [<span class="tk-base">executor</span>.<span class="tk-fn">submit</span>(<span class="tk-fn">run_agent</span>, <span class="tk-base">i</span>) <span class="tk-kw">for</span> <span class="tk-base">i</span> <span class="tk-kw">in</span> <span class="tk-fn">range</span>(<span class="tk-num">100</span>)]</span>
+        <span class="tk-cmt">        # submit() returns a Future immediately (non-blocking)</span>
+        <span class="tk-cmt">        # The actual work happens in background threads</span>
+
+<span class="ln-async">        <span class="tk-base">results</span> <span class="tk-op">=</span> [<span class="tk-base">future</span>.<span class="tk-fn">result</span>() <span class="tk-kw">for</span> <span class="tk-base">future</span> <span class="tk-kw">in</span> <span class="tk-cls">concurrent</span>.<span class="tk-cls">futures</span>.<span class="tk-fn">as_completed</span>(<span class="tk-base">futures</span>)]</span>
+        <span class="tk-cmt">        # as_completed() yields futures as they finish (not in submission order)</span>
+        <span class="tk-cmt">        # .result() blocks until that particular future is done, then returns value</span>
+    <span class="tk-fn">print</span>(<span class="tk-base">results</span>)
+
+<span class="tk-base">start_time</span> <span class="tk-op">=</span> <span class="tk-cls">time</span>.<span class="tk-fn">perf_counter</span>()
+<span class="tk-fn">main</span>()
+<span class="tk-base">end_time</span> <span class="tk-op">=</span> <span class="tk-cls">time</span>.<span class="tk-fn">perf_counter</span>()
+<span class="tk-fn">print</span>(<span class="tk-str">f"Time taken(Multi threading): {end_time - start_time:.2f} seconds"</span>)</code></pre>
+    </div>
+
+    <!-- ── Script 5: validation2.py ── -->
+    <div class="code-section">
+      <div class="code-section-header">
+        <div class="code-section-title">
+          <span style="color:var(--teal-light)">05</span>
+          Pydantic Validation in Action
+          <span class="code-file-badge">auto_validation/validation2.py</span>
+        </div>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre class="code-block"><code id="code5"><span class="ln-pydantic"><span class="tk-kw">from</span> <span class="tk-cls">pydantic</span> <span class="tk-kw">import</span> <span class="tk-cls">BaseModel</span>, <span class="tk-cls">ValidationError</span></span>
+<span class="tk-cmt"># BaseModel: Pydantic's base class — gives you validation, serialization, schema</span>
+<span class="tk-cmt"># ValidationError: raised when data doesn't meet constraints</span>
+
+<span class="ln-pydantic"><span class="tk-kw">class</span> <span class="tk-cls">Product</span>(<span class="tk-cls">BaseModel</span>):              <span class="tk-cmt"># Inherit from BaseModel to get all Pydantic features</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">name</span><span class="tk-op">:</span> <span class="tk-type">str</span>                           <span class="tk-cmt"># Type annotation = validation rule</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">quantity</span><span class="tk-op">:</span> <span class="tk-type">int</span>                       <span class="tk-cmt"># int means: must be coercible to integer</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">price</span><span class="tk-op">:</span> <span class="tk-type">float</span></span>
+
+<span class="tk-kw">try</span>:
+<span class="ln-pydantic">    <span class="tk-base">p1</span> <span class="tk-op">=</span> <span class="tk-cls">Product</span>(<span class="tk-param">name</span><span class="tk-op">=</span><span class="tk-str">"Laptop"</span>, <span class="tk-param">quantity</span><span class="tk-op">=</span><span class="tk-num">3.5</span>, <span class="tk-param">price</span><span class="tk-op">=</span><span class="tk-num">200</span>)</span>
+    <span class="tk-cmt">    # quantity=3.5 — Pydantic will REJECT this.</span>
+    <span class="tk-cmt">    # 3.5 cannot be safely cast to int (data loss). Raises ValidationError.</span>
+    <span class="tk-cmt">    # Compare: @dataclass would silently accept 3.5 as quantity!</span>
+    <span class="tk-fn">print</span>(<span class="tk-base">p1</span>)
+    <span class="tk-base">p2</span> <span class="tk-op">=</span> <span class="tk-cls">Product</span>(<span class="tk-param">name</span><span class="tk-op">=</span><span class="tk-str">"LED"</span>, <span class="tk-param">quantity</span><span class="tk-op">=</span><span class="tk-num">2</span>, <span class="tk-param">price</span><span class="tk-op">=</span><span class="tk-num">300</span>)
+    <span class="tk-base">p3</span> <span class="tk-op">=</span> <span class="tk-cls">Product</span>(<span class="tk-param">name</span><span class="tk-op">=</span><span class="tk-str">"Laptop"</span>, <span class="tk-param">quantity</span><span class="tk-op">=</span><span class="tk-num">3</span>, <span class="tk-param">price</span><span class="tk-op">=</span><span class="tk-num">200</span>)
+    <span class="tk-fn">print</span>(<span class="tk-base">p1</span> <span class="tk-op">==</span> <span class="tk-base">p3</span>)                   <span class="tk-cmt"># Pydantic auto-generates __eq__ based on field values</span>
+    <span class="tk-fn">print</span>(<span class="tk-base">p1</span> <span class="tk-op">==</span> <span class="tk-base">p2</span>)
+<span class="ln-pydantic"><span class="tk-kw">except</span> <span class="tk-cls">ValidationError</span> <span class="tk-kw">as</span> <span class="tk-base">e</span>:</span>
+<span class="ln-pydantic">    <span class="tk-fn">print</span>(<span class="tk-base">e</span>)                           <span class="tk-cmt"># Detailed error: field name, error type, input value</span></span></code></pre>
+    </div>
+
+    <!-- ── Script 6: complex-structure2.py ── -->
+    <div class="code-section">
+      <div class="code-section-header">
+        <div class="code-section-title">
+          <span style="color:var(--teal-light)">06</span>
+          Complex Nested Models (Production Pattern)
+          <span class="code-file-badge">nested-models/complex-structure2.py</span>
+        </div>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre class="code-block"><code id="code6"><span class="ln-pydantic"><span class="tk-kw">from</span> <span class="tk-cls">typing</span> <span class="tk-kw">import</span> <span class="tk-cls">List</span></span>
+<span class="ln-pydantic"><span class="tk-kw">from</span> <span class="tk-cls">pydantic</span> <span class="tk-kw">import</span> <span class="tk-cls">BaseModel</span>, <span class="tk-cls">EmailStr</span>, <span class="tk-cls">PositiveInt</span>, <span class="tk-cls">Field</span>, <span class="tk-cls">HttpUrl</span></span>
+<span class="tk-cmt"># EmailStr: validates email format (requires pydantic[email] extra)</span>
+<span class="tk-cmt"># PositiveInt: int that must be > 0 (built-in constrained type)</span>
+<span class="tk-cmt"># HttpUrl: validates URL scheme + structure</span>
+
+<span class="ln-pydantic"><span class="tk-kw">class</span> <span class="tk-cls">Address</span>(<span class="tk-cls">BaseModel</span>):               <span class="tk-cmt"># Sub-model: will be validated recursively</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">street</span><span class="tk-op">:</span> <span class="tk-type">str</span>; <span class="tk-attr">city</span><span class="tk-op">:</span> <span class="tk-type">str</span>; <span class="tk-attr">state</span><span class="tk-op">:</span> <span class="tk-type">str</span>; <span class="tk-attr">zip_code</span><span class="tk-op">:</span> <span class="tk-type">str</span></span>
+
+<span class="ln-pydantic"><span class="tk-kw">class</span> <span class="tk-cls">Employee</span>(<span class="tk-cls">BaseModel</span>):</span>
+<span class="ln-pydantic">    <span class="tk-attr">name</span><span class="tk-op">:</span> <span class="tk-type">str</span>; <span class="tk-attr">position</span><span class="tk-op">:</span> <span class="tk-type">str</span>; <span class="tk-attr">email</span><span class="tk-op">:</span> <span class="tk-cls">EmailStr</span></span>
+
+<span class="ln-pydantic"><span class="tk-kw">class</span> <span class="tk-cls">Owner</span>(<span class="tk-cls">BaseModel</span>):</span>
+<span class="ln-pydantic">    <span class="tk-attr">name</span><span class="tk-op">:</span> <span class="tk-type">str</span>; <span class="tk-attr">email</span><span class="tk-op">:</span> <span class="tk-cls">EmailStr</span></span>
+
+<span class="ln-pydantic"><span class="tk-kw">class</span> <span class="tk-cls">Restaurant</span>(<span class="tk-cls">BaseModel</span>):             <span class="tk-cmt"># Top-level model — composes all sub-models</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">name</span><span class="tk-op">:</span> <span class="tk-type">str</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">owner</span><span class="tk-op">:</span> <span class="tk-cls">Owner</span>                         <span class="tk-cmt"># Nested model — validated recursively</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">address</span><span class="tk-op">:</span> <span class="tk-cls">Address</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">employees</span><span class="tk-op">:</span> <span class="tk-cls">List</span>[<span class="tk-cls">Employee</span>]           <span class="tk-cmt"># List of nested models — each one validated</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">number_of_seats</span><span class="tk-op">:</span> <span class="tk-cls">PositiveInt</span>        <span class="tk-cmt"># Must be int AND > 0</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">delivery</span><span class="tk-op">:</span> <span class="tk-type">bool</span></span>
+<span class="ln-pydantic">    <span class="tk-attr">website</span><span class="tk-op">:</span> <span class="tk-cls">HttpUrl</span>                    <span class="tk-cmt"># Validates as a proper URL</span></span>
+
+<span class="ln-pydantic"><span class="tk-base">restaurant1</span> <span class="tk-op">=</span> <span class="tk-cls">Restaurant</span>(</span>
+<span class="ln-pydantic">    <span class="tk-param">name</span><span class="tk-op">=</span><span class="tk-str">"Tasty Bites"</span>,</span>
+<span class="ln-pydantic">    <span class="tk-param">owner</span><span class="tk-op">=</span>{<span class="tk-str">"name"</span><span class="tk-op">:</span> <span class="tk-str">"John Doe"</span>, <span class="tk-str">"email"</span><span class="tk-op">:</span> <span class="tk-str">"john.doe@example.com"</span>}, <span class="tk-cmt"># dict auto-coerced to Owner</span></span>
+<span class="ln-pydantic">    <span class="tk-param">address</span><span class="tk-op">=</span>{<span class="tk-str">"street"</span><span class="tk-op">:</span> <span class="tk-str">"123, Flavor Street"</span>, <span class="tk-str">"city"</span><span class="tk-op">:</span> <span class="tk-str">"Tastytown"</span>,</span>
+<span class="ln-pydantic">             <span class="tk-str">"state"</span><span class="tk-op">:</span> <span class="tk-str">"TS"</span>, <span class="tk-str">"zip_code"</span><span class="tk-op">:</span> <span class="tk-str">"12345"</span>},</span>
+<span class="ln-pydantic">    <span class="tk-param">employees</span><span class="tk-op">=</span>[</span>
+<span class="ln-pydantic">        {<span class="tk-str">"name"</span><span class="tk-op">:</span> <span class="tk-str">"Jane Doe"</span>, <span class="tk-str">"position"</span><span class="tk-op">:</span> <span class="tk-str">"Chef"</span>, <span class="tk-str">"email"</span><span class="tk-op">:</span> <span class="tk-str">"jane.doe@example.com"</span>},</span>
+<span class="ln-pydantic">        {<span class="tk-str">"name"</span><span class="tk-op">:</span> <span class="tk-str">"Mike Roe"</span>, <span class="tk-str">"position"</span><span class="tk-op">:</span> <span class="tk-str">"Waiter"</span>, <span class="tk-str">"email"</span><span class="tk-op">:</span> <span class="tk-str">"mike.roe@example.com"</span>},</span>
+<span class="ln-pydantic">    ],</span>
+<span class="ln-pydantic">    <span class="tk-param">number_of_seats</span><span class="tk-op">=</span><span class="tk-num">50</span>, <span class="tk-param">delivery</span><span class="tk-op">=</span><span class="tk-cls">True</span>, <span class="tk-param">website</span><span class="tk-op">=</span><span class="tk-str">"http://tastybites.com"</span>,</span>
+<span class="ln-pydantic">)</span>
+
+<span class="tk-fn">print</span>(<span class="tk-base">restaurant1</span>)
+<span class="tk-fn">print</span>(<span class="tk-base">restaurant1</span>.<span class="tk-fn">model_dump</span>())          <span class="tk-cmt"># Recursive serialization to nested dict</span></code></pre>
+      <div class="explain-grid">
+        <div class="explain-item">
+          <span class="explain-num">Composition</span>
+          <span class="explain-text"><strong>Nested models are validated recursively</strong>. When you pass a raw dict for <code>owner={"name": "...", "email": "..."}</code>, Pydantic automatically creates an <code>Owner</code> instance from it and validates it. This is called <em>model coercion</em>.</span>
+        </div>
+        <div class="explain-item">
+          <span class="explain-num">LLM Use Case</span>
+          <span class="explain-text"><strong>This is how structured LLM outputs work</strong>: you define a nested Pydantic model as your agent's <code>result_type</code>. PydanticAI generates the JSON Schema, sends it to the LLM, and validates the response against it — all automatically.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end tab-code -->
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 3 — ASSESSMENT
+  ════════════════════════════════════════════════════════ -->
+  <div id="tab-assess" class="tab-content">
+
+    <p class="section-lead">Test your understanding of PydanticAI agents, data validation, and async execution patterns. Click an option to check your answer on MCQs.</p>
+
+    <div class="score-bar">
+      <div>
+        <div class="score-label">MCQ Score</div>
+        <div class="score-value" id="score-display">0 / 5</div>
+      </div>
+      <div class="score-track"><div class="score-fill" id="score-fill"></div></div>
+      <button class="reset-btn" onclick="resetQuiz()">↺ Reset</button>
+    </div>
+
+    <!-- MCQ 1 -->
+    <div class="question-card">
+      <div class="q-header">
+        <div class="q-num">1</div>
+        <div class="q-text">What is the key difference between Python's standard <code>@dataclass</code> and Pydantic's <code>BaseModel</code>?</div>
+      </div>
+      <ul class="options">
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q1', 'Incorrect. Both use type annotations, but they differ in enforcement.')"><span class="option-letter">A</span>dataclass uses type annotations; BaseModel does not</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q1', 'Incorrect. Both auto-generate __init__. The key difference is validation enforcement.')"><span class="option-letter">B</span>dataclass auto-generates <code>__init__</code>, while BaseModel requires manual initialization</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, true, 'q1', '✅ Correct! @dataclass treats type hints as documentation only — they are not enforced at runtime. Pydantic validates and coerces data on instantiation, raising ValidationError for invalid types.')"><span class="option-letter">C</span>dataclass uses type hints as documentation only; BaseModel enforces them at runtime with validation</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q1', 'Incorrect. BaseModel generates JSON Schema; dataclass does not by default.')"><span class="option-letter">D</span>dataclass generates JSON Schema automatically; BaseModel requires explicit configuration</button></li>
+      </ul>
+      <div class="feedback" id="feedback-q1"></div>
+    </div>
+
+    <!-- MCQ 2 -->
+    <div class="question-card">
+      <div class="q-header">
+        <div class="q-num">2</div>
+        <div class="q-text">In the codebase, what does <code>agent.run_sync("...")</code> return?</div>
+      </div>
+      <ul class="options">
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q2', 'Incorrect. The raw string is accessed via .output on the returned object.')"><span class="option-letter">A</span>A raw string containing the LLM's response text</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, true, 'q2', '✅ Correct! run_sync() returns a RunResult object with .output (the response), .usage() (token counts), and .all_messages() (full conversation history).')"><span class="option-letter">B</span>A <code>RunResult</code> object with <code>.output</code>, <code>.usage()</code>, and message history</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q2', 'Incorrect. run_sync() returns synchronously, not a Future object.')"><span class="option-letter">C</span>A <code>Future</code> object that must be awaited to get the result</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q2', 'Incorrect. The response is not a Pydantic model itself — it is a RunResult wrapping the response.')"><span class="option-letter">D</span>A Pydantic <code>BaseModel</code> instance representing the LLM response</button></li>
+      </ul>
+      <div class="feedback" id="feedback-q2"></div>
+    </div>
+
+    <!-- MCQ 3 -->
+    <div class="question-card">
+      <div class="q-header">
+        <div class="q-num">3</div>
+        <div class="q-text">Why does <code>asyncio.gather(*tasks)</code> in <code>c_async_llm_calls.py</code> result in dramatically faster execution than sequential <code>for _ in range(10): await agent.run(...)</code>?</div>
+      </div>
+      <ul class="options">
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q3', 'Incorrect. asyncio uses a single-threaded event loop — no multi-core parallelism is involved.')"><span class="option-letter">A</span>gather() uses multiple CPU cores to process LLM calls in parallel</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q3', 'Incorrect. gather() does not create threads.')"><span class="option-letter">B</span>gather() creates a thread for each coroutine, allowing true parallel execution</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, true, 'q3', '✅ Correct! LLM calls are I/O-bound. When Call 1 suspends waiting for a network response, the event loop immediately starts Call 2, 3, etc. All 10 calls are "in flight" simultaneously — total time ≈ 1 call latency, not 10×.')"><span class="option-letter">C</span>All coroutines are started simultaneously on the event loop; when one awaits network I/O, others proceed — achieving concurrency without threads</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q3', 'Incorrect. gather() does not cache or deduplicate requests.')"><span class="option-letter">D</span>gather() caches identical requests and returns the same response for all 10 calls</button></li>
+      </ul>
+      <div class="feedback" id="feedback-q3"></div>
+    </div>
+
+    <!-- MCQ 4 -->
+    <div class="question-card">
+      <div class="q-header">
+        <div class="q-num">4</div>
+        <div class="q-text">What does <code>logfire.instrument_pydantic_ai()</code> do in the agent scripts?</div>
+      </div>
+      <ul class="options">
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q4', 'Incorrect. Logfire does not validate model outputs — Pydantic handles that.')"><span class="option-letter">A</span>It validates the LLM model's output against a Pydantic schema before returning it</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q4', 'Incorrect. Logfire is an observability tool, not a model provider.')"><span class="option-letter">B</span>It connects the agent to the Logfire LLM provider for inference</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, true, 'q4', '✅ Correct! logfire.instrument_pydantic_ai() is a monkey-patch that auto-traces every Agent run — recording inputs, outputs, latencies, token usage, and tool calls to a Logfire dashboard for observability.')"><span class="option-letter">C</span>It auto-instruments the Agent to trace all runs, recording inputs, outputs, latencies, and token usage for observability</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q4', 'Incorrect. Logfire provides distributed tracing, not just local console logs.')"><span class="option-letter">D</span>It enables verbose console logging of all Python function calls</button></li>
+      </ul>
+      <div class="feedback" id="feedback-q4"></div>
+    </div>
+
+    <!-- MCQ 5 -->
+    <div class="question-card">
+      <div class="q-header">
+        <div class="q-num">5</div>
+        <div class="q-text">In <code>product_v1.py</code>, the field is defined as <code>rating: int = Field(None, ge=1, le=5)</code>. What does <code>ge=1, le=5</code> enforce?</div>
+      </div>
+      <ul class="options">
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q5', 'Incorrect. ge and le are value range constraints, not string length constraints.')"><span class="option-letter">A</span>The field must be a string with length between 1 and 5 characters</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, true, 'q5', '✅ Correct! ge = "greater than or equal to" (minimum value 1) and le = "less than or equal to" (maximum value 5). This enforces a 1–5 star rating constraint at the Pydantic level — not in application logic.')"><span class="option-letter">B</span>The integer value must be ≥ 1 and ≤ 5 (i.e., a valid 1–5 star rating)</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q5', 'Incorrect. ge/le are not related to list lengths.')"><span class="option-letter">C</span>The list must have between 1 and 5 elements</button></li>
+        <li><button class="option-btn" onclick="checkAnswer(this, false, 'q5', 'Incorrect. ge and le are inclusive bounds, not exclusive (gt and lt are exclusive).')"><span class="option-letter">D</span>The value must be strictly greater than 1 and strictly less than 5 (exclusive bounds)</button></li>
+      </ul>
+      <div class="feedback" id="feedback-q5"></div>
+    </div>
+
+    <hr class="divider">
+    <h2 class="section-title" style="font-size:1.2rem;margin-bottom:6px">📝 Scenario Questions</h2>
+    <p class="section-lead">Think through and write your answers. The Answer Key reveals model answers on click.</p>
+
+    <!-- Scenario 1 -->
+    <div class="scenario-card">
+      <div class="scenario-label">Scenario 1 — Architecture Decision</div>
+      <div class="scenario-q">You are building a customer support bot that must always return a JSON response with fields: <code>category</code> (one of: billing, technical, general), <code>priority</code> (1–3), and <code>summary</code>. How would you use PydanticAI and Pydantic together to guarantee this structure in every response? Describe the approach.</div>
+      <textarea class="scenario-input" placeholder="Write your answer here..."></textarea>
+    </div>
+
+    <!-- Scenario 2 -->
+    <div class="scenario-card">
+      <div class="scenario-label">Scenario 2 — Performance Debugging</div>
+      <div class="scenario-q">A production pipeline runs 50 LLM classification calls per incoming request and currently uses sequential <code>agent.run_sync()</code> in a loop. Response time is 60 seconds. A colleague suggests switching to <code>asyncio.gather()</code>. Explain what change would be made, why it would improve performance, and what the new approximate response time would be.</div>
+      <textarea class="scenario-input" placeholder="Write your answer here..."></textarea>
+    </div>
+
+    <!-- Scenario 3 -->
+    <div class="scenario-card">
+      <div class="scenario-label">Scenario 3 — Bug Identification</div>
+      <div class="scenario-q">A junior developer writes the following code and complains "Pydantic is accepting wrong data!". Diagnose the bug:<br><br><code style="display:block;background:var(--bg-code);padding:12px;border-radius:8px;margin-top:8px;font-family:'DM Mono',monospace;font-size:.85rem">from dataclasses import dataclass<br>@dataclass<br>class Order:<br>&nbsp;&nbsp;&nbsp;&nbsp;quantity: int<br>&nbsp;&nbsp;&nbsp;&nbsp;price: float<br><br>o = Order(quantity="hello", price=200)<br>print(o)  # No error!</code></div>
+      <textarea class="scenario-input" placeholder="Write your answer here..."></textarea>
+    </div>
+
+    <!-- ANSWER KEY -->
+    <div class="answer-key-section">
+      <button class="answer-key-toggle" onclick="toggleAnswerKey(this)">
+        <span>🔑 Reveal Answer Key</span>
+        <span class="chevron">▼</span>
+      </button>
+      <div class="answer-key-body" id="answer-key-body">
+
+        <div style="margin-bottom:24px">
+          <h3 style="font-size:1rem;font-weight:700;color:var(--purple-light);margin-bottom:12px">MCQ Answers</h3>
+          <div class="ak-item"><div class="ak-q">Q1 — dataclass vs BaseModel</div><div class="ak-a"><span class="ak-tag ak-correct">C</span> dataclass uses type hints as documentation only; BaseModel enforces them at runtime.</div></div>
+          <div class="ak-item"><div class="ak-q">Q2 — What does run_sync() return?</div><div class="ak-a"><span class="ak-tag ak-correct">B</span> A <code>RunResult</code> object with <code>.output</code> (typed response), <code>.usage()</code> (token stats), and message history.</div></div>
+          <div class="ak-item"><div class="ak-q">Q3 — Why is asyncio.gather() faster?</div><div class="ak-a"><span class="ak-tag ak-correct">C</span> LLM calls are I/O-bound. gather() starts all coroutines simultaneously; they each suspend at network I/O, letting others proceed. No threads, no CPU parallelism — pure cooperative multitasking.</div></div>
+          <div class="ak-item"><div class="ak-q">Q4 — What does logfire.instrument_pydantic_ai() do?</div><div class="ak-a"><span class="ak-tag ak-correct">C</span> Auto-instruments the Agent loop for distributed tracing — inputs, outputs, latencies, and token costs are recorded to Logfire.</div></div>
+          <div class="ak-item"><div class="ak-q">Q5 — What do ge=1, le=5 enforce?</div><div class="ak-a"><span class="ak-tag ak-correct">B</span> The integer value must be ≥ 1 AND ≤ 5. Attempting to set rating=6 raises <code>ValidationError</code>.</div></div>
+        </div>
+
+        <hr class="divider">
+
+        <h3 style="font-size:1rem;font-weight:700;color:var(--teal-light);margin-bottom:12px">Scenario Model Answers</h3>
+
+        <div class="ak-item">
+          <div class="ak-q">Scenario 1 — Architecture Decision</div>
+          <div class="ak-a">Define a Pydantic model: <code>class SupportResponse(BaseModel): category: Literal["billing","technical","general"]; priority: int = Field(ge=1, le=3); summary: str</code>. Then create the agent with <code>result_type=SupportResponse</code>. PydanticAI will automatically generate a JSON Schema from this model and send it to the LLM as a function/tool definition. The LLM is forced to return structured JSON, and PydanticAI validates the response against the schema before returning it as a typed Python object. This eliminates brittle string parsing.</div>
+        </div>
+
+        <div class="ak-item">
+          <div class="ak-q">Scenario 2 — Performance Debugging</div>
+          <div class="ak-a">Refactor <code>main()</code> to be <code>async def main()</code>. Replace the loop with: <code>tasks = [agent.run(prompt) for _ in range(50)]</code> then <code>results = await asyncio.gather(*tasks)</code>. Call with <code>asyncio.run(main())</code>. Rationale: LLM calls are I/O-bound (network latency). Sequential sync execution: total time = 50 × 1.2s ≈ 60s. With gather(), all 50 calls are started simultaneously — the event loop fires each one and suspends when waiting for the network, immediately moving to the next. Total time ≈ single call latency ≈ 1–2s. This is a ~30–60× improvement for this use case.</div>
+        </div>
+
+        <div class="ak-item">
+          <div class="ak-q">Scenario 3 — Bug Identification</div>
+          <div class="ak-a">The bug is that the code uses Python's standard <code>@dataclass</code> decorator, not Pydantic's <code>BaseModel</code>. The <code>@dataclass</code> decorator only uses type annotations as <em>hints</em> — they are not enforced at runtime. Passing <code>quantity="hello"</code> when <code>quantity: int</code> is declared raises no error. Fix: replace <code>from dataclasses import dataclass</code> and <code>@dataclass</code> with <code>from pydantic import BaseModel</code> and <code>class Order(BaseModel):</code>. Then the same <code>Order(quantity="hello", ...)</code> call will raise a <code>ValidationError</code> with a descriptive message.</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- end tab-assess -->
+
+  <footer>
+    Built for the AI/ML Education Series · Module 4.1 · PydanticAI Agentic Patterns<br>
+    <span style="color:var(--border-glow)">Pydantic · PydanticAI · AsyncIO · Logfire</span>
+  </footer>
+
+</div><!-- end wrapper -->
+
+<script>
+// ─── TAB SWITCHING ───────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── MCQ LOGIC ───────────────────────────────────────────
+let scores = {};
+let answered = {};
+
+function checkAnswer(btn, isCorrect, qId, explanation) {
+  if (answered[qId]) return; // Prevent re-answering
+  answered[qId] = true;
+
+  const allBtns = btn.closest('ul').querySelectorAll('.option-btn');
+  allBtns.forEach(b => b.disabled = true);
+
+  const fb = document.getElementById('feedback-' + qId);
+  if (isCorrect) {
+    btn.classList.add('correct');
+    fb.className = 'feedback show correct-fb';
+    scores[qId] = 1;
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback show wrong-fb';
+    scores[qId] = 0;
+    // reveal the correct answer
+    allBtns.forEach(b => {
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').includes('true')) {
+        b.classList.add('reveal-correct');
+      }
+    });
+  }
+  fb.textContent = explanation;
+  updateScore();
+}
+
+function updateScore() {
+  const total = Object.values(scores).reduce((a,b) => a+b, 0);
+  const count = Object.keys(scores).length;
+  document.getElementById('score-display').textContent = total + ' / 5';
+  document.getElementById('score-fill').style.width = (total / 5 * 100) + '%';
+}
+
+function resetQuiz() {
+  scores = {}; answered = {};
+  document.querySelectorAll('.option-btn').forEach(b => {
+    b.classList.remove('correct','wrong','reveal-correct');
+    b.disabled = false;
+  });
+  document.querySelectorAll('.feedback').forEach(f => {
+    f.className = 'feedback';
+    f.textContent = '';
+  });
+  document.getElementById('score-display').textContent = '0 / 5';
+  document.getElementById('score-fill').style.width = '0%';
+}
+
+// ─── ANSWER KEY TOGGLE ───────────────────────────────────
+function toggleAnswerKey(btn) {
+  btn.classList.toggle('open');
+  const body = document.getElementById('answer-key-body');
+  body.classList.toggle('open');
+}
+
+// ─── COPY CODE ───────────────────────────────────────────
+function copyCode(btn) {
+  const pre = btn.closest('.code-section').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pydantic Field() Syntax — v1 vs v2 Style Deep Dive</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Bricolage+Grotesque:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #06080e;
+    --surface:   #0b0e1a;
+    --surface2:  #101622;
+    --border:    #172035;
+    --border2:   #1f2e4a;
+    --text:      #dce8f8;
+    --muted:     #445068;
+
+    --v1:        #fb923c;   /* orange  — v1 syntax */
+    --v2:        #34d399;   /* emerald — v2 / modern */
+    --field:     #e879f9;   /* magenta — Field() */
+    --ellipsis:  #fbbf24;   /* amber   — ... required */
+    --annot:     #818cf8;   /* indigo  — Annotated */
+    --union:     #38bdf8;   /* sky     — | union */
+    --valid:     #4ade80;   /* green   — valid */
+    --err:       #f43f5e;   /* rose    — error */
+
+    --font-head: 'Bricolage Grotesque', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-head); line-height:1.7; overflow-x:hidden; }
+  ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:var(--bg); } ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  nav { position:sticky; top:0; z-index:100; background:rgba(6,8,14,0.94); backdrop-filter:blur(18px); border-bottom:1px solid var(--border); padding:10px 36px; display:flex; gap:24px; align-items:center; overflow-x:auto; }
+  .nav-logo { font-family:var(--font-mono); font-size:0.78rem; font-weight:500; color:var(--v2); margin-right:8px; white-space:nowrap; }
+  nav a { font-family:var(--font-mono); font-size:0.67rem; color:var(--muted); text-decoration:none; letter-spacing:1px; white-space:nowrap; transition:color .2s; }
+  nav a:hover { color:var(--v2); }
+
+  /* ── HERO ── */
+  .hero { padding:68px 40px 56px; background: radial-gradient(ellipse at 78% 0%, rgba(52,211,153,0.11) 0%, transparent 50%), radial-gradient(ellipse at 10% 90%, rgba(251,146,60,0.09) 0%, transparent 50%), var(--bg); border-bottom:1px solid var(--border); position:relative; overflow:hidden; }
+  .hero-grid { position:absolute; inset:0; opacity:0.02; background-image:linear-gradient(var(--border2) 1px,transparent 1px),linear-gradient(90deg,var(--border2) 1px,transparent 1px); background-size:40px 40px; }
+  .hero-eyebrow { font-family:var(--font-mono); font-size:0.7rem; color:var(--v2); letter-spacing:4px; text-transform:uppercase; margin-bottom:14px; }
+  .hero h1 { font-size:clamp(2rem,5vw,3.6rem); font-weight:900; line-height:1.06; background:linear-gradient(120deg, var(--v1) 0%, #fff 40%, var(--v2) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:16px; }
+  .hero p { font-size:1rem; color:var(--muted); max-width:660px; }
+  .hero-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+  .badge { font-family:var(--font-mono); font-size:0.68rem; padding:4px 13px; border-radius:20px; border:1px solid; letter-spacing:1px; }
+
+  /* ── LAYOUT ── */
+  .container { max-width:1100px; margin:0 auto; padding:0 36px; }
+  .section { padding:62px 0; border-bottom:1px solid var(--border); }
+  .section-tag { font-family:var(--font-mono); font-size:0.67rem; color:var(--v2); letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  h2 { font-size:2rem; font-weight:800; margin-bottom:6px; }
+  h3 { font-size:1.05rem; font-weight:700; margin-bottom:9px; }
+  .subtitle { color:var(--muted); margin-bottom:34px; font-size:0.92rem; }
+
+  /* ── CARDS ── */
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; margin-top:28px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; position:relative; overflow:hidden; transition:transform .18s, border-color .18s; }
+  .card:hover { transform:translateY(-3px); }
+  .card-stripe { position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; }
+  .card-icon { font-size:1.7rem; margin-bottom:9px; }
+  .card h3 { font-size:0.98rem; margin-bottom:7px; }
+  .card p { color:var(--muted); font-size:0.86rem; }
+  .pill { display:inline-block; font-family:var(--font-mono); font-size:0.65rem; padding:2px 8px; border-radius:4px; margin-top:10px; }
+
+  /* ── CALLOUT ── */
+  .callout { border-left:4px solid var(--v2); background:rgba(52,211,153,0.06); border-radius:0 10px 10px 0; padding:18px 22px; margin:22px 0; }
+  .callout.orange { border-color:var(--v1);      background:rgba(251,146,60,0.06); }
+  .callout.magenta{ border-color:var(--field);   background:rgba(232,121,249,0.06); }
+  .callout.amber  { border-color:var(--ellipsis);background:rgba(251,191,36,0.06); }
+  .callout.indigo { border-color:var(--annot);   background:rgba(129,140,248,0.06); }
+  .callout.sky    { border-color:var(--union);   background:rgba(56,189,248,0.06); }
+  .callout.rose   { border-color:var(--err);     background:rgba(244,63,94,0.06); }
+  .callout-title { font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .callout        .callout-title { color:var(--v2); }
+  .callout.orange .callout-title { color:var(--v1); }
+  .callout.magenta.callout-title { color:var(--field); }
+  .callout.amber  .callout-title { color:var(--ellipsis); }
+  .callout.indigo .callout-title { color:var(--annot); }
+  .callout.sky    .callout-title { color:var(--union); }
+  .callout.rose   .callout-title { color:var(--err); }
+  .callout p { font-size:0.875rem; }
+  code { font-family:var(--font-mono); background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:3px; font-size:0.82em; color:var(--v2); }
+
+  /* ── BIG SPLIT COMPARE ── */
+  .big-split { display:grid; grid-template-columns:1fr 1fr; gap:0; margin-top:28px; border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  @media(max-width:720px){ .big-split { grid-template-columns:1fr; } }
+  .bs-side { padding:28px; }
+  .bs-side.v1 { border-right:1px solid var(--border); background:rgba(251,146,60,0.04); }
+  .bs-side.v2 { background:rgba(52,211,153,0.04); }
+  .bs-head { font-size:1rem; font-weight:800; margin-bottom:6px; }
+  .bs-file { font-family:var(--font-mono); font-size:0.65rem; color:var(--muted); margin-bottom:16px; }
+  .bs-field { background:var(--surface2); border-radius:8px; padding:12px 14px; font-family:var(--font-mono); font-size:0.75rem; margin-bottom:10px; line-height:1.7; }
+  .bs-note { font-size:0.82rem; color:var(--muted); margin-top:6px; }
+
+  /* ── FIELD ANATOMY ── */
+  .anatomy-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; }
+  .ana-row { display:flex; align-items:stretch; gap:0; margin-bottom:20px; flex-wrap:wrap; }
+  .ana-seg { padding:10px 14px; border-radius:8px; margin:3px; font-family:var(--font-mono); font-size:0.78rem; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .ana-label { font-family:var(--font-head); font-size:0.63rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+  .seg-name   { background:rgba(255,255,255,0.08); color:var(--text); }
+  .seg-colon  { color:var(--muted); background:none; }
+  .seg-type   { background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); color:var(--union); }
+  .seg-eq     { color:var(--muted); background:none; }
+  .seg-field  { background:rgba(232,121,249,0.15); border:1px solid rgba(232,121,249,0.3); color:var(--field); }
+  .seg-ell    { background:rgba(251,191,36,0.15); border:1px solid rgba(251,191,36,0.3); color:var(--ellipsis); }
+  .seg-none   { background:rgba(244,63,94,0.12); border:1px solid rgba(244,63,94,0.3); color:var(--err); }
+  .seg-desc   { background:rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.3); color:var(--v2); }
+  .seg-ge     { background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.3); color:var(--v1); }
+  .seg-annot  { background:rgba(129,140,248,0.15); border:1px solid rgba(129,140,248,0.3); color:var(--annot); }
+
+  /* ── ELLIPSIS EXPLAINER ── */
+  .ell-compare { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:20px; }
+  @media(max-width:680px){ .ell-compare { grid-template-columns:1fr; } }
+  .ell-box { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .ell-head { font-size:0.95rem; font-weight:800; margin-bottom:10px; }
+  .ell-code { font-family:var(--font-mono); font-size:0.76rem; background:var(--surface2); border-radius:8px; padding:12px; margin:10px 0; line-height:1.7; }
+  .ell-desc { font-size:0.85rem; color:var(--muted); }
+
+  /* ── UNION SYNTAX ── */
+  .union-compare { display:grid; grid-template-columns:1fr 40px 1fr; gap:0; align-items:center; margin-top:20px; }
+  .uc-box { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .uc-vs { text-align:center; font-weight:800; color:var(--muted); font-size:1.2rem; }
+
+  /* ── OUTPUT BOXES ── */
+  .out-wrap { background:#030407; border:1px solid var(--border); border-radius:14px; margin-top:20px; overflow:hidden; }
+  .out-header { background:var(--surface2); padding:10px 18px; font-family:var(--font-mono); font-size:0.68rem; color:var(--muted); letter-spacing:1px; display:flex; align-items:center; gap:10px; }
+  .out-dot { width:8px; height:8px; border-radius:50%; }
+  .out-body { padding:18px 22px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.9; }
+  .o-ok  { color:var(--valid); }
+  .o-err { color:var(--err); }
+  .o-ann { color:var(--muted); font-style:italic; }
+  .o-head{ color:var(--ellipsis); font-weight:500; }
+
+  /* ── FLOW ── */
+  .flow { display:flex; flex-direction:column; margin-top:24px; }
+  .flow-step { display:flex; align-items:flex-start; gap:16px; position:relative; }
+  .flow-step:not(:last-child)::after { content:''; position:absolute; left:17px; top:37px; width:2px; height:42px; background:linear-gradient(180deg,var(--v2),transparent); }
+  .flow-num { width:36px; height:36px; border-radius:50%; background:rgba(52,211,153,0.12); border:2px solid var(--v2); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--v2); flex-shrink:0; }
+  .flow-body { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:13px 17px; margin-bottom:38px; flex:1; }
+  .flow-body h4 { font-size:0.93rem; margin-bottom:4px; }
+  .flow-body p { font-size:0.83rem; color:var(--muted); }
+
+  /* ── TABLE ── */
+  table { width:100%; border-collapse:collapse; font-size:0.83rem; margin-top:22px; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); border-bottom:2px solid var(--border); }
+  td { padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:hover td { background:rgba(255,255,255,0.015); }
+  td code { font-family:var(--font-mono); background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:3px; font-size:0.8em; }
+  .y { color:var(--valid); } .n { color:var(--err); } .m { color:var(--ellipsis); }
+
+  /* ── CODE ── */
+  .code-file-header { display:flex; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; padding:11px 18px; }
+  .dots { display:flex; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g{background:#28c840;}
+  .code-file-name { font-family:var(--font-mono); font-size:0.74rem; color:var(--muted); }
+  .file-badge { margin-left:auto; font-family:var(--font-mono); font-size:0.63rem; padding:3px 10px; border-radius:20px; border:1px solid; }
+  pre { background:#030407; border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:24px; overflow-x:auto; font-family:var(--font-mono); font-size:0.8rem; line-height:1.9; margin-bottom:28px; }
+  .kw  { color:#ff79c6; }
+  .fn  { color:#50fa7b; }
+  .str { color:#f1fa8c; }
+  .cm  { color:#253550; font-style:italic; }
+  .cls { color:#8be9fd; }
+  .vr  { color:#f8f8f2; }
+  .at  { color:#ffb86c; }
+  .nm  { color:#bd93f9; }
+  .v1c { color:var(--v1); }
+  .v2c { color:var(--v2); }
+  .fc  { color:var(--field); }
+  .ec  { color:var(--ellipsis); }
+  .ac  { color:var(--annot); }
+  .uc  { color:var(--union); }
+  .rc  { color:var(--err); }
+
+  .footer { padding:40px; text-align:center; color:var(--muted); font-family:var(--font-mono); font-size:0.72rem; border-top:1px solid var(--border); }
+  @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .section { animation:fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">⚡ GenAI Mentor</span>
+  <a href="#concepts">Concepts</a>
+  <a href="#anatomy">Field() Anatomy</a>
+  <a href="#ellipsis">... Ellipsis</a>
+  <a href="#union">| Union Syntax</a>
+  <a href="#split">v1 vs v2 Split</a>
+  <a href="#output">Output</a>
+  <a href="#code">Commented Code</a>
+  <a href="#when">When to Use</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="container">
+    <div class="hero-eyebrow">Pydantic Field() — Two Syntax Styles</div>
+    <h1>Same Model, Two Ways<br/>to Write It</h1>
+    <p><code>product_v1.py</code> uses the classic <code>Field(...)</code> style. <code>product_v2.py</code> uses the modern <code>Annotated[type, Field()]</code> style. Same validation, same output — but v2 is what Pydantic officially recommends today, and what you'll see in production codebases. Let's understand every difference.</p>
+    <div class="hero-badges">
+      <span class="badge" style="color:var(--v1);border-color:var(--v1)">product_v1.py</span>
+      <span class="badge" style="color:var(--v2);border-color:var(--v2)">product_v2.py (modern)</span>
+      <span class="badge" style="color:var(--ellipsis);border-color:var(--ellipsis)">... Ellipsis</span>
+      <span class="badge" style="color:var(--field);border-color:var(--field)">Field()</span>
+      <span class="badge" style="color:var(--annot);border-color:var(--annot)">Annotated</span>
+      <span class="badge" style="color:var(--union);border-color:var(--union)">int | None</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 1 — CONCEPTS ════════ -->
+<div class="section" id="concepts">
+  <div class="container">
+    <div class="section-tag">Section 01</div>
+    <h2>Core Concepts</h2>
+    <p class="subtitle">Six new ideas introduced across these two files.</p>
+
+    <div class="cards-grid">
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--ellipsis)"></div>
+        <div class="card-icon">…</div>
+        <h3>The Ellipsis <code>...</code> — Required!</h3>
+        <p><code>Field(...)</code> uses Python's built-in <strong>Ellipsis object</strong> as the first argument. It's Pydantic's signal for "this field is <em>required — no default</em>". If you omit a field marked with <code>...</code>, you get a <code>ValidationError</code> immediately. Think of it as saying "fill this in or else!"</p>
+        <span class="pill" style="background:rgba(251,191,36,0.12);color:var(--ellipsis)">Field(...) = required, no default</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--field)"></div>
+        <div class="card-icon">⚙️</div>
+        <h3>Field() — Description + Constraints</h3>
+        <p>We've seen <code>Field()</code> before. New here: it's used on <em>every</em> field including required ones. The <code>description=</code> text ends up in the <strong>JSON Schema</strong> — so the LLM sees it when you use <code>output_type=</code>. Good descriptions = better LLM extractions.</p>
+        <span class="pill" style="background:rgba(232,121,249,0.12);color:var(--field)">description goes into JSON Schema</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--annot)"></div>
+        <div class="card-icon">🏷️</div>
+        <h3>Annotated — The Modern Way (v2)</h3>
+        <p><code>Annotated[str, Field(...)]</code> moves the <code>Field()</code> call <em>into the type annotation</em>. The type and its metadata are bundled together. This is the Pydantic v2-recommended pattern. Tools like mypy and IDEs understand it better, and it avoids a known ambiguity with <code>None</code> defaults.</p>
+        <span class="pill" style="background:rgba(129,140,248,0.12);color:var(--annot)">type + metadata = one unit</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--union)"></div>
+        <div class="card-icon">🔀</div>
+        <h3><code>int | None</code> — Union Type (Python 3.10+)</h3>
+        <p>The pipe <code>|</code> operator creates a <strong>union type</strong>: "this can be an int, OR None". The modern replacement for <code>Optional[int]</code> from the <code>typing</code> module. Cleaner, shorter, no import needed. <code>int | None</code> and <code>Optional[int]</code> are 100% equivalent.</p>
+        <span class="pill" style="background:rgba(56,189,248,0.12);color:var(--union)">Python 3.10+ — no typing import!</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--v1)"></div>
+        <div class="card-icon">📋</div>
+        <h3><code>list[str]</code> — Python 3.9+ Lowercase</h3>
+        <p>Both files use <code>list[str]</code> with lowercase <code>l</code>. This works in Python 3.9+. Before 3.9, you had to write <code>List[str]</code> (uppercase, imported from <code>typing</code>). These two files don't import <code>List</code> from typing — proof they target Python 3.9+.</p>
+        <span class="pill" style="background:rgba(251,146,60,0.12);color:var(--v1)">Python 3.9+ — built-in generics</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--err)"></div>
+        <div class="card-icon">🧪</div>
+        <h3>Test-Driven Structure</h3>
+        <p>Both files use <code>try/except ValidationError</code> as a <strong>self-contained test suite</strong>. First test: valid data → should print nothing (or the object). Second test: invalid rating (6) → should print the error. This pattern is common for quickly demonstrating validation behaviour.</p>
+        <span class="pill" style="background:rgba(244,63,94,0.12);color:var(--err)">test valid then invalid</span>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:32px">
+      <div class="callout-title">💡 The One Big Difference Between v1 and v2</div>
+      <p>
+        Both files define <em>identical</em> validation rules and produce <em>identical</em> results. The only difference is <strong>syntax style</strong>:<br/><br/>
+        <strong>v1 style:</strong> <code>field: type = Field(default_or_..., constraint=...)</code> — Field as the default value.<br/>
+        <strong>v2 style:</strong> <code>field: Annotated[type, Field(constraint=...)] = default</code> — Field in the annotation, default separately.<br/><br/>
+        The v2 style is Pydantic's official recommendation because it's unambiguous: the type and its constraints are bundled together, and the default value is clearly separate (after <code>=</code>).
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 2 — FIELD ANATOMY ════════ -->
+<div class="section" id="anatomy">
+  <div class="container">
+    <div class="section-tag">Section 02</div>
+    <h2>Field() Anatomy — Every Piece Labelled</h2>
+    <p class="subtitle">The rating field is the most complex — let's dissect both syntax versions completely.</p>
+
+    <div class="anatomy-wrap">
+      <div style="font-family:var(--font-mono);font-size:0.67rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px">v1 Style — rating field</div>
+
+      <div class="ana-row" style="align-items:flex-end">
+        <div class="ana-col ana-seg seg-name"><span>rating</span><span class="ana-label">field name</span></div>
+        <div class="ana-seg seg-colon"><span>:</span></div>
+        <div class="ana-seg seg-type"><span>int</span><span class="ana-label">type</span></div>
+        <div class="ana-seg seg-eq"><span>=</span></div>
+        <div class="ana-seg seg-field"><span>Field(</span><span class="ana-label">Field()</span></div>
+        <div class="ana-seg seg-none"><span>None</span><span class="ana-label">default ← sets optional</span></div>
+        <div class="ana-seg" style="color:var(--muted)">,</div>
+        <div class="ana-seg seg-desc"><span>description="..."</span><span class="ana-label">→ JSON Schema</span></div>
+        <div class="ana-seg" style="color:var(--muted)">,</div>
+        <div class="ana-seg seg-ge"><span>ge=1, le=5</span><span class="ana-label">constraints</span></div>
+        <div class="ana-seg seg-field"><span>)</span></div>
+      </div>
+
+      <div style="margin:8px 0 24px;font-size:0.82rem;color:var(--muted)">
+        ⚠️ <strong style="color:var(--ellipsis)">Ambiguity:</strong> <code>Field(None, ...)</code> — is <code>None</code> the default value, or a constraint? Pydantic knows, but it's not obvious to a human reader.
+      </div>
+
+      <div style="font-family:var(--font-mono);font-size:0.67rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px">v2 Style — same rating field (modern)</div>
+
+      <div class="ana-row" style="align-items:flex-end;flex-wrap:wrap">
+        <div class="ana-seg seg-name"><span>rating</span><span class="ana-label">field name</span></div>
+        <div class="ana-seg seg-colon"><span>:</span></div>
+        <div class="ana-seg seg-annot"><span>Annotated[</span><span class="ana-label">wrapper</span></div>
+        <div class="ana-seg seg-type"><span>int | None</span><span class="ana-label">type (nullable)</span></div>
+        <div class="ana-seg" style="color:var(--muted)">,</div>
+        <div class="ana-seg seg-field"><span>Field(</span><span class="ana-label">Field()</span></div>
+        <div class="ana-seg seg-desc"><span>description="..."</span><span class="ana-label">→ JSON Schema</span></div>
+        <div class="ana-seg" style="color:var(--muted)">,</div>
+        <div class="ana-seg seg-ge"><span>ge=1, le=5</span><span class="ana-label">constraints</span></div>
+        <div class="ana-seg seg-field"><span>)</span></div>
+        <div class="ana-seg seg-annot"><span>]</span></div>
+        <div class="ana-seg seg-eq"><span>=</span></div>
+        <div class="ana-seg seg-none"><span>None</span><span class="ana-label">default ← clearly separate</span></div>
+      </div>
+
+      <div style="margin-top:14px;font-size:0.82rem;color:var(--v2)">
+        ✅ <strong>Crystal clear:</strong> the type (<code>int | None</code>) and its constraints (<code>Field(ge=1, le=5)</code>) are bundled in <code>Annotated[...]</code>. The default (<code>= None</code>) is plainly visible after <code>=</code>.
+      </div>
+    </div>
+
+    <!-- ALL 5 FIELDS SIDE BY SIDE -->
+    <div class="big-split" style="margin-top:28px">
+      <div class="bs-side v1">
+        <div class="bs-head" style="color:var(--v1)">🟠 product_v1.py style</div>
+        <div class="bs-file">Field() as the default value</div>
+
+        <div class="bs-field">
+          <span style="color:var(--vr)">name</span>: <span style="color:var(--uc)">str</span> = <span style="color:var(--fc)">Field</span>(<span style="color:var(--ec)">...</span>, <span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Product name"</span>)
+        </div>
+        <div class="bs-field">
+          <span style="color:var(--vr)">price</span>: <span style="color:var(--uc)">float</span> = <span style="color:var(--fc)">Field</span>(<span style="color:var(--ec)">...</span>, <span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Price..."</span>)
+        </div>
+        <div class="bs-field">
+          <span style="color:var(--vr)">quantity</span>: <span style="color:var(--uc)">int</span> = <span style="color:var(--fc)">Field</span>(<span style="color:var(--ec)">...</span>, <span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Stock..."</span>)
+        </div>
+        <div class="bs-field" style="border:1px solid rgba(251,191,36,0.3)">
+          <span style="color:var(--vr)">rating</span>: <span style="color:var(--uc)">int</span> = <span style="color:var(--fc)">Field</span>(<span style="color:rgba(244,63,94,0.9)">None</span>, description=<span style="color:var(--str)">"..."</span>, <span style="color:var(--v1)">ge=1, le=5</span>)
+          <div style="font-size:0.68rem;color:var(--ellipsis);margin-top:4px">⚠️ None here means "default is None" — not obvious!</div>
+        </div>
+        <div class="bs-field">
+          <span style="color:var(--vr)">features</span>: <span style="color:var(--uc)">list[str]</span> = <span style="color:var(--fc)">Field</span>(<span style="color:var(--ec)">...</span>, <span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Features..."</span>)
+        </div>
+      </div>
+
+      <div class="bs-side v2">
+        <div class="bs-head" style="color:var(--v2)">🟢 product_v2.py style (modern)</div>
+        <div class="bs-file">Field() inside Annotated[type, Field()]</div>
+
+        <div class="bs-field">
+          <span style="color:var(--vr)">name</span>: <span style="color:var(--ac)">Annotated</span>[<span style="color:var(--uc)">str</span>, <span style="color:var(--fc)">Field</span>(<span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Product name"</span>)]
+        </div>
+        <div class="bs-field">
+          <span style="color:var(--vr)">price</span>: <span style="color:var(--ac)">Annotated</span>[<span style="color:var(--uc)">float</span>, <span style="color:var(--fc)">Field</span>(<span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Price..."</span>)]
+        </div>
+        <div class="bs-field">
+          <span style="color:var(--vr)">quantity</span>: <span style="color:var(--ac)">Annotated</span>[<span style="color:var(--uc)">int</span>, <span style="color:var(--fc)">Field</span>(<span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Stock..."</span>)]
+        </div>
+        <div class="bs-field" style="border:1px solid rgba(52,211,153,0.3)">
+          <span style="color:var(--vr)">rating</span>: <span style="color:var(--ac)">Annotated</span>[<span style="color:var(--uc)">int | None</span>, <span style="color:var(--fc)">Field</span>(description=<span style="color:var(--str)">"..."</span>, <span style="color:var(--v1)">ge=1, le=5</span>)] = <span style="color:rgba(244,63,94,0.9)">None</span>
+          <div style="font-size:0.68rem;color:var(--v2);margin-top:4px">✅ = None is clearly the default — unambiguous!</div>
+        </div>
+        <div class="bs-field">
+          <span style="color:var(--vr)">features</span>: <span style="color:var(--ac)">Annotated</span>[<span style="color:var(--uc)">list[str]</span>, <span style="color:var(--fc)">Field</span>(<span style="color:var(--at)">description</span>=<span style="color:var(--str)">"Features..."</span>)]
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 3 — ELLIPSIS ════════ -->
+<div class="section" id="ellipsis">
+  <div class="container">
+    <div class="section-tag">Section 03</div>
+    <h2>The <code>...</code> Ellipsis — "This Field Is Required"</h2>
+    <p class="subtitle">Python's built-in <code>Ellipsis</code> object used as a mandatory field marker in Pydantic v1 style.</p>
+
+    <div class="ell-compare">
+      <div class="ell-box" style="border-color:rgba(251,191,36,0.4)">
+        <div class="ell-head" style="color:var(--ellipsis)">… Required (Field(...))</div>
+        <div class="ell-code">
+          <span style="color:var(--vr)">name</span>: <span style="color:var(--uc)">str</span> = <span style="color:var(--fc)">Field</span>(<span style="color:var(--ec)">...</span>, description=<span style="color:var(--str)">"Product name"</span>)
+        </div>
+        <div class="ell-desc">
+          <code>...</code> is the <strong>Ellipsis</strong> — a Python singleton (like <code>True</code> or <code>None</code> but less famous). Pydantic interprets it as "no default — user must supply this".<br/><br/>
+          Missing it: <code>Product(price=999)</code> → <code>ValidationError: name field required</code>.
+        </div>
+      </div>
+
+      <div class="ell-box" style="border-color:rgba(244,63,94,0.4)">
+        <div class="ell-head" style="color:var(--err)">None = Optional default</div>
+        <div class="ell-code">
+          <span style="color:var(--vr)">rating</span>: <span style="color:var(--uc)">int</span> = <span style="color:var(--fc)">Field</span>(<span style="color:rgba(244,63,94,0.9)">None</span>, description=<span style="color:var(--str)">"Rating..."</span>)
+        </div>
+        <div class="ell-desc">
+          <code>None</code> as first arg means "default value is None". So if you don't provide <code>rating</code>, Pydantic stores <code>None</code> automatically. This is the v1 way to make a field optional.<br/><br/>
+          In v2 style: <code>Annotated[int | None, Field(...)] = None</code> — cleaner.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout amber" style="margin-top:20px">
+      <div class="callout-title">🔍 What Exactly IS <code>...</code>?</div>
+      <p>
+        <code>...</code> is Python's <strong>Ellipsis literal</strong>. It evaluates to the singleton object <code>Ellipsis</code>. You can type it in the REPL: <code>type(...)</code> → <code>&lt;class 'ellipsis'&gt;</code>. It was originally for slicing multidimensional arrays in NumPy. Pydantic hijacked it as a "required" marker because it's a unique object that can't be confused with a real default value. In v2 syntax, you don't need it at all — a field without <code>= default</code> is automatically required.
+      </p>
+    </div>
+
+    <!-- REQUIRED vs OPTIONAL TABLE -->
+    <table style="margin-top:24px">
+      <thead><tr><th>v1 Syntax</th><th>v2 Syntax</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>name: str = Field(...)</code></td>
+          <td><code>name: Annotated[str, Field()]</code></td>
+          <td><span class="y">Required</span> — must be provided</td>
+        </tr>
+        <tr>
+          <td><code>rating: int = Field(None)</code></td>
+          <td><code>rating: Annotated[int | None, Field()] = None</code></td>
+          <td><span class="m">Optional</span> — defaults to None</td>
+        </tr>
+        <tr>
+          <td><code>score: int = Field(5)</code></td>
+          <td><code>score: Annotated[int, Field()] = 5</code></td>
+          <td><span class="m">Optional</span> — defaults to 5</td>
+        </tr>
+        <tr>
+          <td colspan="3" style="color:var(--muted);font-size:0.82rem;font-style:italic">In v2, a field with no <code>= default</code> is automatically required — no need for <code>...</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════ SECTION 4 — UNION SYNTAX ════════ -->
+<div class="section" id="union">
+  <div class="container">
+    <div class="section-tag">Section 04</div>
+    <h2><code>int | None</code> — The Modern Union Type</h2>
+    <p class="subtitle">Python 3.10 introduced <code>|</code> for union types. v2 uses it instead of <code>Optional[int]</code>.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:center;margin-top:24px">
+      <div style="background:var(--surface);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:22px">
+        <div style="font-size:0.95rem;font-weight:800;color:var(--v1);margin-bottom:10px">Old way (pre-3.10)</div>
+        <div style="font-family:var(--font-mono);font-size:0.8rem;background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:12px;line-height:1.7">
+          <span style="color:var(--kw)">from</span> <span style="color:var(--cls)">typing</span> <span style="color:var(--kw)">import</span> <span style="color:var(--ac)">Optional</span><br/>
+          <span style="color:var(--vr)">rating</span>: <span style="color:var(--ac)">Optional</span>[<span style="color:var(--uc)">int</span>] = <span style="color:var(--nm)">None</span>
+        </div>
+        <div style="font-size:0.84rem;color:var(--muted)">Needs an import from <code>typing</code>. Works back to Python 3.5+. Still valid today.</div>
+      </div>
+
+      <div style="text-align:center;font-size:1.4rem;font-weight:800;color:var(--muted)">=</div>
+
+      <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.3);border-radius:12px;padding:22px">
+        <div style="font-size:0.95rem;font-weight:800;color:var(--v2);margin-bottom:10px">New way (Python 3.10+)</div>
+        <div style="font-family:var(--font-mono);font-size:0.8rem;background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:12px;line-height:1.7">
+          <span style="color:var(--muted);font-style:italic"># no import needed</span><br/>
+          <span style="color:var(--vr)">rating</span>: <span style="color:var(--uc)">int</span> <span style="color:var(--v2)">|</span> <span style="color:var(--nm)">None</span> = <span style="color:var(--nm)">None</span>
+        </div>
+        <div style="font-size:0.84rem;color:var(--muted)">No import. Cleaner. Reads like English: "int or None". Python 3.10+ required.</div>
+      </div>
+    </div>
+
+    <div class="callout sky" style="margin-top:24px">
+      <div class="callout-title">🔍 What Does int | None Actually Mean for Validation?</div>
+      <p>
+        <code>int | None</code> means Pydantic will accept <strong>either</strong> an integer value <strong>or</strong> the value <code>None</code>.<br/><br/>
+        <code>rating=5</code> → ✅ integer, valid<br/>
+        <code>rating=None</code> → ✅ None, valid (field is omitted or explicitly set to None)<br/>
+        <code>rating="high"</code> → ✗ ValidationError (not an int or None)<br/><br/>
+        Combined with <code>ge=1, le=5</code>: if a value IS provided (not None), it must be between 1 and 5. If it's None, the ge/le constraints don't apply.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 5 — OUTPUT ════════ -->
+<div class="section" id="output">
+  <div class="container">
+    <div class="section-tag">Section 05</div>
+    <h2>Execution Output — Both Files Print Identically</h2>
+    <p class="subtitle">Despite different syntax, the validation behaviour and output are exactly the same.</p>
+
+    <div class="out-wrap">
+      <div class="out-header">
+        <div class="out-dot" style="background:var(--valid)"></div>
+        <span>Both product_v1.py and product_v2.py — terminal output</span>
+      </div>
+      <div class="out-body">
+        <div class="o-head">--- Testing Valid Data ---</div>
+        <div style="height:4px"></div>
+        <div class="o-ann"># p1 created successfully — no except block fires</div>
+        <div class="o-ann"># print(p1) would show:</div>
+        <div class="o-ok">name='Laptop' price=999.99 quantity=10 rating=5 features=['SSD', '16GB RAM']</div>
+        <div style="height:14px"></div>
+        <div class="o-head">--- Testing Invalid Rating (6) ---</div>
+        <div style="height:4px"></div>
+        <div class="o-err">1 validation error for Product</div>
+        <div class="o-err">rating</div>
+        <div class="o-err">&nbsp;&nbsp;Input should be less than or equal to 5</div>
+        <div class="o-err">&nbsp;&nbsp;[type=less_than_equal, input_value=6, input_type=int]</div>
+        <div style="height:8px"></div>
+        <div class="o-ann"># Error tells us exactly: field=rating, problem=le=5 violated, bad value=6</div>
+        <div class="o-ann"># The rest of the Product data (Phone, 500.0, 5, "5G") was valid</div>
+        <div class="o-ann"># Only rating=6 broke the rule → only 1 error reported</div>
+      </div>
+    </div>
+
+    <div class="callout rose" style="margin-top:20px">
+      <div class="callout-title">🧪 Why Both Files Print the Same Thing</div>
+      <p>
+        The two syntax styles — <code>Field(None, ge=1, le=5)</code> vs <code>Annotated[int | None, Field(ge=1, le=5)] = None</code> — are <strong>semantically identical</strong>. Pydantic generates the same internal validation logic from both. The difference is purely about code clarity and tooling support, not runtime behaviour. The JSON Schema produced by <code>model_json_schema()</code> is also identical.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 6 — COMMENTED CODE ════════ -->
+<div class="section" id="code">
+  <div class="container">
+    <div class="section-tag">Section 06</div>
+    <h2>Commented Code — Both Files</h2>
+    <p class="subtitle">Every field, every syntax choice, every test explained.</p>
+
+    <!-- FILE 1 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">product_v1.py</span>
+      <span class="file-badge" style="color:var(--v1);border-color:var(--v1)">CLASSIC FIELD() STYLE</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="cls">BaseModel</span>, <span class="fc">Field</span>, <span class="rc">ValidationError</span>
+<span class="cm"># Field      → add descriptions and constraints to any field
+# ValidationError → the exception Pydantic raises when validation fails
+# No 'Optional' or 'List' imports — using Python 3.9+ built-in generics!</span>
+
+<span class="kw">class</span> <span class="cls">Product</span>(<span class="cls">BaseModel</span>):
+
+    <span class="vr">name</span>: <span class="uc">str</span> = <span class="fc">Field</span>(<span class="ec">...</span>, <span class="at">description</span>=<span class="str">"Product name"</span>)
+    <span class="cm">    # str = type. Field(...) = required, no default.
+    # '...' (Ellipsis) is Python's way of saying "mandatory — fill this in".
+    # description= ends up in model_json_schema() → LLMs read this!</span>
+
+    <span class="vr">price</span>: <span class="uc">float</span> = <span class="fc">Field</span>(<span class="ec">...</span>, <span class="at">description</span>=<span class="str">"Price of the product"</span>)
+    <span class="cm">    # float required. No min/max constraint — any price (even negative?) is accepted.
+    # In production: add ge=0.0 to prevent negative prices.</span>
+
+    <span class="vr">quantity</span>: <span class="uc">int</span> = <span class="fc">Field</span>(<span class="ec">...</span>, <span class="at">description</span>=<span class="str">"Available stock quantity"</span>)
+    <span class="cm">    # int required. Again, no ge=0 — negative stock would be accepted!
+    # These descriptions let the LLM know these are required fields.</span>
+
+    <span class="vr">rating</span>: <span class="uc">int</span> = <span class="fc">Field</span>(<span class="nm">None</span>, <span class="at">description</span>=<span class="str">"User rating between 1-5 stars"</span>, <span class="v1c">ge</span>=<span class="nm">1</span>, <span class="v1c">le</span>=<span class="nm">5</span>)
+    <span class="cm">    # THE TRICKY ONE. Breaking it down:
+    #   rating: int     → the type hint says int
+    #   Field(None,...) → first arg is the DEFAULT VALUE (None)
+    #                     so if not provided, rating = None
+    #   ge=1            → if a value IS provided, it must be ≥ 1
+    #   le=5            → if a value IS provided, it must be ≤ 5
+    #
+    # PROBLEM: the type says 'int' but the default is None (not an int!).
+    # Pydantic v2 allows this but it's technically inconsistent — the type
+    # should be 'int | None' or 'Optional[int]'. This is the v1 ambiguity.
+    # rating=None → OK (default)
+    # rating=3    → OK (1 ≤ 3 ≤ 5)
+    # rating=6    → ValidationError (6 > 5, violates le=5)</span>
+
+    <span class="vr">features</span>: <span class="uc">list</span>[<span class="uc">str</span>] = <span class="fc">Field</span>(<span class="ec">...</span>, <span class="at">description</span>=<span class="str">"Key product features"</span>)
+    <span class="cm">    # list[str] — Python 3.9+ lowercase list with generic parameter.
+    # Required (... ellipsis). Each item must be a string.
+    # Pass: ["SSD", "16GB RAM"] → ✅
+    # Pass: [1, 2, 3]          → coerced to ["1", "2", "3"] (Pydantic coerces)</span>
+
+
+<span class="cm"># ─── TEST SUITE ─────────────────────────────────────────────────────────────</span>
+<span class="fn">print</span>(<span class="str">"--- Testing Valid Data ---"</span>)
+<span class="kw">try</span>:
+    <span class="vr">p1</span> = <span class="cls">Product</span>(<span class="at">name</span>=<span class="str">"Laptop"</span>, <span class="at">price</span>=<span class="nm">999.99</span>, <span class="at">quantity</span>=<span class="nm">10</span>, <span class="at">rating</span>=<span class="nm">5</span>, <span class="at">features</span>=[<span class="str">"SSD"</span>, <span class="str">"16GB RAM"</span>])
+    <span class="cm">    # All fields valid:
+    # name="Laptop"       → str ✅
+    # price=999.99        → float ✅
+    # quantity=10         → int ✅
+    # rating=5            → int, 1 ≤ 5 ≤ 5 ✅
+    # features=[...]      → list[str] ✅
+    # p1 is created — no exception. Nothing prints from the except block.</span>
+<span class="kw">except</span> <span class="rc">ValidationError</span> <span class="kw">as</span> <span class="vr">e</span>:
+    <span class="fn">print</span>(<span class="vr">e</span>)
+
+<span class="fn">print</span>(<span class="str">"\n--- Testing Invalid Rating (6) ---"</span>)
+<span class="kw">try</span>:
+    <span class="cls">Product</span>(<span class="at">name</span>=<span class="str">"Phone"</span>, <span class="at">price</span>=<span class="nm">500.0</span>, <span class="at">quantity</span>=<span class="nm">5</span>, <span class="at">rating</span>=<span class="nm">6</span>, <span class="at">features</span>=[<span class="str">"5G"</span>])
+    <span class="cm">    # rating=6 violates le=5 constraint.
+    # Pydantic raises ValidationError immediately on construction.
+    # The Product object is NEVER created — the except block fires.</span>
+<span class="kw">except</span> <span class="rc">ValidationError</span> <span class="kw">as</span> <span class="vr">e</span>:
+    <span class="fn">print</span>(<span class="vr">e</span>)
+    <span class="cm">    # Prints: "1 validation error for Product / rating / Input should be ≤ 5"</span></pre>
+
+    <!-- FILE 2 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">product_v2.py</span>
+      <span class="file-badge" style="color:var(--v2);border-color:var(--v2)">MODERN ANNOTATED STYLE</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">typing</span> <span class="kw">import</span> <span class="ac">Annotated</span>
+<span class="cm"># ONLY Annotated is imported from typing.
+# No Optional, no List — modern Python handles these natively.
+# Annotated = a typing wrapper that attaches metadata to a type.
+# Annotated[str, Field(...)] = "str, and here's extra info about it"</span>
+
+<span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="cls">BaseModel</span>, <span class="fc">Field</span>, <span class="rc">ValidationError</span>
+
+
+<span class="kw">class</span> <span class="cls">Product</span>(<span class="cls">BaseModel</span>):
+
+    <span class="vr">name</span>: <span class="ac">Annotated</span>[<span class="uc">str</span>, <span class="fc">Field</span>(<span class="at">description</span>=<span class="str">"Product name"</span>)]
+    <span class="cm">    # Annotated[str, Field(...)] bundles the type (str) with its metadata (Field).
+    # No '...' needed — a field with no '= default' is automatically required in v2.
+    # No default after the annotation → required.
+    # Equivalent to v1's: name: str = Field(..., description="...")</span>
+
+    <span class="vr">price</span>: <span class="ac">Annotated</span>[<span class="uc">float</span>, <span class="fc">Field</span>(<span class="at">description</span>=<span class="str">"Price of the product"</span>)]
+    <span class="vr">quantity</span>: <span class="ac">Annotated</span>[<span class="uc">int</span>, <span class="fc">Field</span>(<span class="at">description</span>=<span class="str">"Available stock quantity"</span>)]
+
+    <span class="vr">rating</span>: <span class="ac">Annotated</span>[<span class="uc">int</span> <span class="v2c">|</span> <span class="kw">None</span>, <span class="fc">Field</span>(<span class="at">description</span>=<span class="str">"User rating between 1-5 stars"</span>, <span class="v1c">ge</span>=<span class="nm">1</span>, <span class="v1c">le</span>=<span class="nm">5</span>)] = <span class="kw">None</span>
+    <span class="cm">    # SAME AS V1 RATING — but now crystal clear. Reading it left to right:
+    #
+    # Annotated[         → "I'm attaching metadata to a type"
+    #   int | None,      → the type: integer OR None (Python 3.10+ union syntax)
+    #   Field(           → here's the metadata:
+    #     description=,  → text for JSON Schema / LLM
+    #     ge=1, le=5     → if a value is given, it must be 1–5
+    #   )
+    # ] = None           → the DEFAULT VALUE is None (field is optional)
+    #
+    # Compare to v1: rating: int = Field(None, description=..., ge=1, le=5)
+    # In v1: where is the default? Mixed INTO Field()'s first arg — confusing.
+    # In v2: the default is clearly AFTER = — unambiguous!
+    #
+    # int | None makes it honest: "this is an int OR None"
+    # Without | None, type would claim it's always int but default is None — lie!</span>
+
+    <span class="vr">features</span>: <span class="ac">Annotated</span>[<span class="uc">list</span>[<span class="uc">str</span>], <span class="fc">Field</span>(<span class="at">description</span>=<span class="str">"Key product features"</span>)]
+    <span class="cm">    # Required list[str]. Same as v1. No default → must be provided.</span>
+
+
+<span class="cm"># ─── IDENTICAL TEST SUITE ───────────────────────────────────────────────────</span>
+<span class="fn">print</span>(<span class="str">"--- Testing Valid Data ---"</span>)
+<span class="kw">try</span>:
+    <span class="vr">p1</span> = <span class="cls">Product</span>(<span class="at">name</span>=<span class="str">"Laptop"</span>, <span class="at">price</span>=<span class="nm">999.99</span>, <span class="at">quantity</span>=<span class="nm">10</span>, <span class="at">rating</span>=<span class="nm">5</span>, <span class="at">features</span>=[<span class="str">"SSD"</span>, <span class="str">"16GB RAM"</span>])
+    <span class="cm">    # Same valid data as v1 → same success, no exception.</span>
+<span class="kw">except</span> <span class="rc">ValidationError</span> <span class="kw">as</span> <span class="vr">e</span>:
+    <span class="fn">print</span>(<span class="vr">e</span>)
+
+<span class="fn">print</span>(<span class="str">"\n--- Testing Invalid Rating (6) ---"</span>)
+<span class="kw">try</span>:
+    <span class="cls">Product</span>(<span class="at">name</span>=<span class="str">"Phone"</span>, <span class="at">price</span>=<span class="nm">500.0</span>, <span class="at">quantity</span>=<span class="nm">5</span>, <span class="at">rating</span>=<span class="nm">6</span>, <span class="at">features</span>=[<span class="str">"5G"</span>])
+    <span class="cm">    # rating=6 still violates le=5 → same ValidationError as v1.
+    # Proof: the underlying validation rules are identical in both styles.</span>
+<span class="kw">except</span> <span class="rc">ValidationError</span> <span class="kw">as</span> <span class="vr">e</span>:
+    <span class="fn">print</span>(<span class="vr">e</span>)</pre>
+
+  </div>
+</div>
+
+<!-- ════════ SECTION 7 — WHEN TO USE WHAT ════════ -->
+<div class="section" id="when">
+  <div class="container">
+    <div class="section-tag">Section 07</div>
+    <h2>When to Use Which Style</h2>
+    <p class="subtitle">Practical guidance — and why v2 is now the standard in production.</p>
+
+    <table>
+      <thead><tr><th>Feature</th><th>v1 Style (Field as default)</th><th>v2 Style (Annotated)</th></tr></thead>
+      <tbody>
+        <tr><td>Pydantic recommendation</td><td><span class="m">Legacy, still works</span></td><td><span class="y">✓ Official recommendation</span></td></tr>
+        <tr><td>Readability of optional fields</td><td><span class="n">Ambiguous — default inside Field()</span></td><td><span class="y">Clear — default after <code>=</code></span></td></tr>
+        <tr><td>Type checker (mypy) support</td><td><span class="m">Works but less precise</span></td><td><span class="y">Fully precise — type is exact</span></td></tr>
+        <tr><td>Honesty about nullability</td><td><span class="n"><code>int</code> type but default is <code>None</code></span></td><td><span class="y"><code>int | None</code> — honest about None</span></td></tr>
+        <tr><td>Python version needed</td><td>3.6+ (with typing imports)</td><td>3.10+ for <code>|</code> syntax</td></tr>
+        <tr><td>Used in pydantic_ai output_type</td><td><span class="y">✓ Both work</span></td><td><span class="y">✓ Both work</span></td></tr>
+        <tr><td>Production codebases today</td><td>Older codebases</td><td><span class="y">New projects</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top:28px">
+      <div class="callout-title">🚀 The Full Picture — How This Connects Forward</div>
+      <p>
+        The <code>description=</code> field in every <code>Field()</code> call isn't decoration — it's <strong>LLM communication</strong>. When you use <code>Agent(output_type=Product)</code>:<br/><br/>
+        <code>Product.model_json_schema()</code> generates a schema where each field has a <code>"description"</code> key pulled directly from <code>Field(description=...)</code>. The LLM reads these descriptions to understand what to extract or generate for each field.<br/><br/>
+        <strong>Better descriptions = better LLM output.</strong> <code>description="Price of the product in USD, positive number"</code> beats <code>description="Price"</code> every time. That's why these two files write descriptions on <em>every</em> field — and why the v2 style that makes the code cleaner also makes it easier to maintain good descriptions.
+      </p>
+    </div>
+
+    <!-- CHEAT SHEET -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;margin-top:24px">
+      <div style="font-weight:800;font-size:1rem;margin-bottom:18px">📋 Quick Reference — v1 vs v2 Translation</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--surface2);border-radius:8px;padding:14px">
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--v1);margin-bottom:6px;letter-spacing:1px">V1 → Required field</div>
+          <div style="font-family:var(--font-mono);font-size:0.73rem;color:var(--muted)">name: str = Field(<span style="color:var(--ellipsis)">...</span>, desc=...)</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:14px">
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--v2);margin-bottom:6px;letter-spacing:1px">V2 → Required field</div>
+          <div style="font-family:var(--font-mono);font-size:0.73rem;color:var(--muted)">name: <span style="color:var(--annot)">Annotated</span>[str, Field(desc=...)]</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:14px">
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--v1);margin-bottom:6px;letter-spacing:1px">V1 → Optional field</div>
+          <div style="font-family:var(--font-mono);font-size:0.73rem;color:var(--muted)">x: int = Field(<span style="color:rgba(244,63,94,0.9)">None</span>, ge=1)</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:14px">
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--v2);margin-bottom:6px;letter-spacing:1px">V2 → Optional field</div>
+          <div style="font-family:var(--font-mono);font-size:0.73rem;color:var(--muted)">x: <span style="color:var(--annot)">Annotated</span>[<span style="color:var(--union)">int | None</span>, Field(ge=1)] <span style="color:rgba(244,63,94,0.9)">= None</span></div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:14px">
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--v1);margin-bottom:6px;letter-spacing:1px">V1 → With constraints</div>
+          <div style="font-family:var(--font-mono);font-size:0.73rem;color:var(--muted)">x: int = Field(<span style="color:var(--ellipsis)">...</span>, <span style="color:var(--v1)">ge=0, le=100</span>)</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:14px">
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--v2);margin-bottom:6px;letter-spacing:1px">V2 → With constraints</div>
+          <div style="font-family:var(--font-mono);font-size:0.73rem;color:var(--muted)">x: <span style="color:var(--annot)">Annotated</span>[int, Field(<span style="color:var(--v1)">ge=0, le=100</span>)]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>⚡ GenAI Mentor · product_v1 vs product_v2 · algo-genai-2026</div>
+  <div style="margin-top:6px;color:#131e35">Same validation, cleaner syntax — evolve with the language 🚀</div>
+</div>
+
+</body>
+</html>

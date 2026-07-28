@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sync vs Async vs Gather vs ThreadPool — Deep Dive</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Bricolage+Grotesque:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #06080e;
+    --surface:  #0b0e1a;
+    --surface2: #101420;
+    --border:   #162035;
+    --border2:  #1e2c48;
+    --text:     #dce8fa;
+    --muted:    #445070;
+
+    --sync:     #f43f5e;   /* rose    — sync/blocking  — file A */
+    --aseq:     #fb923c;   /* orange  — async sequential — file B */
+    --agath:    #34d399;   /* emerald — async gather — file C */
+    --thread:   #818cf8;   /* indigo  — threadpool — file E */
+    --gather:   #38bdf8;   /* sky     — gather keyword */
+    --await:    #e879f9;   /* magenta — await */
+    --sleep:    #fbbf24;   /* amber   — sleep/IO */
+    --tid:      #a78bfa;   /* violet  — thread id */
+
+    --font-head: 'Bricolage Grotesque', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-head); line-height:1.7; overflow-x:hidden; }
+  ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:var(--bg); } ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  nav { position:sticky; top:0; z-index:100; background:rgba(6,8,14,0.94); backdrop-filter:blur(18px); border-bottom:1px solid var(--border); padding:10px 36px; display:flex; gap:22px; align-items:center; overflow-x:auto; }
+  .nav-logo { font-family:var(--font-mono); font-size:0.78rem; color:var(--agath); margin-right:8px; white-space:nowrap; }
+  nav a { font-family:var(--font-mono); font-size:0.67rem; color:var(--muted); text-decoration:none; letter-spacing:1px; white-space:nowrap; transition:color .2s; }
+  nav a:hover { color:var(--agath); }
+
+  /* ── HERO ── */
+  .hero { padding:68px 40px 56px; background:radial-gradient(ellipse at 80% 0%, rgba(52,211,153,0.1) 0%, transparent 50%), radial-gradient(ellipse at 5% 90%, rgba(244,63,94,0.09) 0%, transparent 50%), var(--bg); border-bottom:1px solid var(--border); position:relative; overflow:hidden; }
+  .hero-dots { position:absolute; inset:0; opacity:0.02; background-image:radial-gradient(circle, #fff 1px, transparent 1px); background-size:30px 30px; }
+  .hero-eyebrow { font-family:var(--font-mono); font-size:0.7rem; color:var(--agath); letter-spacing:4px; text-transform:uppercase; margin-bottom:14px; }
+  .hero h1 { font-size:clamp(2rem,5vw,3.5rem); font-weight:900; line-height:1.06; background:linear-gradient(120deg, var(--sync) 0%, var(--aseq) 33%, var(--agath) 66%, var(--thread) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:16px; }
+  .hero p { font-size:1rem; color:var(--muted); max-width:680px; }
+  .hero-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+  .badge { font-family:var(--font-mono); font-size:0.68rem; padding:4px 13px; border-radius:20px; border:1px solid; letter-spacing:1px; }
+
+  /* ── LAYOUT ── */
+  .container { max-width:1100px; margin:0 auto; padding:0 36px; }
+  .section { padding:62px 0; border-bottom:1px solid var(--border); }
+  .section-tag { font-family:var(--font-mono); font-size:0.67rem; color:var(--agath); letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  h2 { font-size:2rem; font-weight:800; margin-bottom:6px; }
+  h3 { font-size:1.05rem; font-weight:700; margin-bottom:9px; }
+  .subtitle { color:var(--muted); margin-bottom:34px; font-size:0.92rem; }
+
+  /* ── CARDS ── */
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; margin-top:28px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; position:relative; overflow:hidden; transition:transform .18s, border-color .18s; }
+  .card:hover { transform:translateY(-3px); }
+  .card-stripe { position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; }
+  .card-icon { font-size:1.7rem; margin-bottom:9px; }
+  .card h3 { font-size:0.98rem; margin-bottom:7px; }
+  .card p { color:var(--muted); font-size:0.86rem; }
+  .pill { display:inline-block; font-family:var(--font-mono); font-size:0.65rem; padding:2px 8px; border-radius:4px; margin-top:10px; }
+
+  /* ── CALLOUT ── */
+  .callout { border-left:4px solid var(--agath); background:rgba(52,211,153,0.06); border-radius:0 10px 10px 0; padding:18px 22px; margin:22px 0; }
+  .callout.rose   { border-color:var(--sync);   background:rgba(244,63,94,0.06); }
+  .callout.orange { border-color:var(--aseq);   background:rgba(251,146,60,0.06); }
+  .callout.sky    { border-color:var(--gather); background:rgba(56,189,248,0.06); }
+  .callout.indigo { border-color:var(--thread); background:rgba(129,140,248,0.06); }
+  .callout.amber  { border-color:var(--sleep);  background:rgba(251,191,36,0.06); }
+  .callout.magenta{ border-color:var(--await);  background:rgba(232,121,249,0.06); }
+  .callout-title { font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .callout        .callout-title { color:var(--agath); }
+  .callout.rose   .callout-title { color:var(--sync); }
+  .callout.orange .callout-title { color:var(--aseq); }
+  .callout.sky    .callout-title { color:var(--gather); }
+  .callout.indigo .callout-title { color:var(--thread); }
+  .callout.amber  .callout-title { color:var(--sleep); }
+  .callout.magenta .callout-title { color:var(--await); }
+  .callout p { font-size:0.875rem; }
+  code { font-family:var(--font-mono); background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:3px; font-size:0.82em; color:var(--agath); }
+
+  /* ── 4-FILE GRID ── */
+  .four-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:28px; }
+  @media(max-width:700px){ .four-grid { grid-template-columns:1fr; } }
+  .fcard { border-radius:14px; border:2px solid var(--border); padding:24px; position:relative; overflow:hidden; }
+  .fcard::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:14px 14px 0 0; }
+  .fcard.fa::before  { background:var(--sync); }   .fcard.fa  { border-color:rgba(244,63,94,0.3);  background:rgba(244,63,94,0.03); }
+  .fcard.fb::before  { background:var(--aseq); }   .fcard.fb  { border-color:rgba(251,146,60,0.3); background:rgba(251,146,60,0.03); }
+  .fcard.fc::before  { background:var(--agath); }  .fcard.fc  { border-color:rgba(52,211,153,0.3); background:rgba(52,211,153,0.03); }
+  .fcard.fe::before  { background:var(--thread); } .fcard.fe  { border-color:rgba(129,140,248,0.3);background:rgba(129,140,248,0.03); }
+  .fc-file { font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); margin-bottom:8px; }
+  .fc-title { font-size:1rem; font-weight:800; margin-bottom:10px; }
+  .fc-time { font-family:var(--font-mono); font-size:0.75rem; padding:6px 12px; border-radius:6px; margin-bottom:10px; display:inline-block; }
+  .fc-desc { font-size:0.86rem; color:var(--muted); }
+  .fc-tag { font-family:var(--font-mono); font-size:0.63rem; padding:2px 8px; border-radius:4px; margin-top:10px; display:inline-block; }
+
+  /* ── WORKER DIAGRAM ── */
+  .worker-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; overflow-x:auto; }
+  .w-label { font-family:var(--font-mono); font-size:0.67rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:18px; }
+  .w-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; min-width:680px; }
+  .w-tag { font-family:var(--font-mono); font-size:0.68rem; width:110px; flex-shrink:0; text-align:right; padding-right:8px; }
+  .w-timeline { flex:1; display:flex; gap:3px; }
+  .wb { height:28px; border-radius:4px; display:flex; align-items:center; padding:0 8px; font-family:var(--font-mono); font-size:0.62rem; white-space:nowrap; }
+  .wb-run  { background:rgba(244,63,94,0.2);  border:1px solid rgba(244,63,94,0.4);  color:var(--sync); }
+  .wb-wait { background:rgba(255,255,255,0.04); border:1px dashed rgba(255,255,255,0.1); color:var(--muted); }
+  .wb-async{ background:rgba(52,211,153,0.18); border:1px solid rgba(52,211,153,0.4);  color:var(--agath); }
+  .wb-io   { background:rgba(56,189,248,0.18); border:1px solid rgba(56,189,248,0.4);  color:var(--gather); }
+  .wb-th   { background:rgba(129,140,248,0.18);border:1px solid rgba(129,140,248,0.4); color:var(--thread); }
+  .wb-sus  { background:rgba(251,146,60,0.15); border:1px dashed rgba(251,146,60,0.4); color:var(--aseq); }
+
+  /* ── GATHER ANATOMY ── */
+  .gather-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; }
+  .gb-step { display:flex; gap:14px; align-items:flex-start; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+  .gb-step:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  .gb-num { width:36px; height:36px; border-radius:8px; background:rgba(56,189,248,0.12); border:2px solid var(--gather); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:0.85rem; font-weight:700; color:var(--gather); flex-shrink:0; }
+  .gb-body h4 { font-size:0.93rem; margin-bottom:4px; }
+  .gb-body p { font-size:0.85rem; color:var(--muted); }
+  .gb-code { font-family:var(--font-mono); font-size:0.76rem; background:var(--surface2); border-radius:7px; padding:10px 14px; margin-top:8px; line-height:1.7; }
+
+  /* ── THREAD ID PROOF ── */
+  .tid-box { background:#030407; border:1px solid var(--border); border-radius:12px; padding:24px; margin-top:20px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.9; }
+  .tid-head { font-family:var(--font-head); font-size:0.68rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:12px; }
+
+  /* ── RESULTS BAR ── */
+  .results-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:28px; margin-top:28px; }
+  .rb-row { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+  .rb-label { font-family:var(--font-mono); font-size:0.72rem; width:190px; flex-shrink:0; }
+  .rb-bar-bg { flex:1; background:var(--surface2); border-radius:20px; height:32px; overflow:hidden; }
+  .rb-bar { height:100%; border-radius:20px; display:flex; align-items:center; padding:0 14px; font-family:var(--font-mono); font-size:0.72rem; font-weight:700; transition:width .8s ease; }
+  .rb-time { font-family:var(--font-mono); font-size:0.72rem; color:var(--muted); width:70px; text-align:right; }
+
+  /* ── TABLE ── */
+  table { width:100%; border-collapse:collapse; font-size:0.83rem; margin-top:22px; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); border-bottom:2px solid var(--border); }
+  td { padding:10px 14px; border-bottom:1px solid var(--border); }
+  tr:hover td { background:rgba(255,255,255,0.015); }
+  td code { font-family:var(--font-mono); background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:3px; font-size:0.8em; }
+  .y { color:var(--agath); } .n { color:var(--sync); } .m { color:var(--sleep); }
+
+  /* ── CODE ── */
+  .code-file-header { display:flex; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; padding:11px 18px; }
+  .dots { display:flex; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g{background:#28c840;}
+  .code-file-name { font-family:var(--font-mono); font-size:0.74rem; color:var(--muted); }
+  .file-badge { margin-left:auto; font-family:var(--font-mono); font-size:0.63rem; padding:3px 10px; border-radius:20px; border:1px solid; }
+  pre { background:#030407; border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:24px; overflow-x:auto; font-family:var(--font-mono); font-size:0.8rem; line-height:1.9; margin-bottom:28px; }
+  .kw  { color:#ff79c6; }
+  .fn  { color:#50fa7b; }
+  .str { color:#f1fa8c; }
+  .cm  { color:#253550; font-style:italic; }
+  .cls { color:#8be9fd; }
+  .vr  { color:#f8f8f2; }
+  .at  { color:#ffb86c; }
+  .nm  { color:#bd93f9; }
+  .sc  { color:var(--sync); }
+  .asc { color:var(--aseq); }
+  .agc { color:var(--agath); }
+  .thc { color:var(--thread); }
+  .awc { color:var(--await); }
+  .slc { color:var(--sleep); }
+  .gac { color:var(--gather); }
+  .tdc { color:var(--tid); }
+
+  .footer { padding:40px; text-align:center; color:var(--muted); font-family:var(--font-mono); font-size:0.72rem; border-top:1px solid var(--border); }
+  @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .section { animation:fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">⚡ GenAI Mentor</span>
+  <a href="#concepts">4 Approaches</a>
+  <a href="#timeline">Timelines</a>
+  <a href="#gather">asyncio.gather()</a>
+  <a href="#threadpool">ThreadPool</a>
+  <a href="#tid">Thread IDs</a>
+  <a href="#results">Results</a>
+  <a href="#code">Commented Code</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-dots"></div>
+  <div class="container">
+    <div class="hero-eyebrow">Concurrency Patterns — 4 Approaches</div>
+    <h1>100 Seconds of Waiting.<br/>4 Ways to Handle It.</h1>
+    <p>All 4 files do the same thing: sleep 1 second, 100 times, multiply each result. The difference is <em>how</em> they handle that waiting. From <strong>100 seconds</strong> sequential, to <strong>~1 second</strong> concurrent. This is the most important performance concept in modern Python.</p>
+    <div class="hero-badges">
+      <span class="badge" style="color:var(--sync);border-color:var(--sync)">A: Sync — 100s</span>
+      <span class="badge" style="color:var(--aseq);border-color:var(--aseq)">B: Async Sequential — 10s</span>
+      <span class="badge" style="color:var(--agath);border-color:var(--agath)">C: Async Gather — ~1s</span>
+      <span class="badge" style="color:var(--thread);border-color:var(--thread)">E: ThreadPool — ~1s</span>
+      <span class="badge" style="color:var(--sleep);border-color:var(--sleep)">time.sleep vs asyncio.sleep</span>
+      <span class="badge" style="color:var(--gather);border-color:var(--gather)">asyncio.gather()</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 1 — 4 APPROACHES ════════ -->
+<div class="section" id="concepts">
+  <div class="container">
+    <div class="section-tag">Section 01</div>
+    <h2>The 4 Approaches — What Each File Does</h2>
+    <p class="subtitle">Same task, four wildly different execution models, four very different completion times.</p>
+
+    <div class="four-grid">
+
+      <div class="fcard fa">
+        <div class="fc-file">a_sync_sleep.py</div>
+        <div class="fc-title" style="color:var(--sync)">🛑 A — Pure Synchronous</div>
+        <div class="fc-time" style="background:rgba(244,63,94,0.15);color:var(--sync)">~100 seconds</div>
+        <div class="fc-desc">Uses <code>time.sleep(1)</code> in a for loop. Each call blocks the thread for 1 second. 100 calls = 100 × 1s = 100 seconds. No concurrency whatsoever. Baseline approach.</div>
+        <span class="fc-tag" style="background:rgba(244,63,94,0.12);color:var(--sync)">time.sleep() · blocking</span>
+      </div>
+
+      <div class="fcard fb">
+        <div class="fc-file">b_async_sleep.py</div>
+        <div class="fc-title" style="color:var(--aseq)">🟠 B — Async But Sequential</div>
+        <div class="fc-time" style="background:rgba(251,146,60,0.15);color:var(--aseq)">~10 seconds</div>
+        <div class="fc-desc">Uses <code>asyncio.sleep(1)</code> with <code>await</code>, but calls one at a time in a for loop. The loop waits for each to finish before starting the next. <em>Async syntax, sequential behaviour.</em> (Only 10 iterations here)</div>
+        <span class="fc-tag" style="background:rgba(251,146,60,0.12);color:var(--aseq)">await per call · still serial</span>
+      </div>
+
+      <div class="fcard fc">
+        <div class="fc-file">c_async_sleep.py</div>
+        <div class="fc-title" style="color:var(--agath)">✅ C — Async + Gather (Best!)</div>
+        <div class="fc-time" style="background:rgba(52,211,153,0.15);color:var(--agath)">~1 second</div>
+        <div class="fc-desc">Creates ALL 10 coroutines at once, then <code>await asyncio.gather(*tasks)</code> runs them concurrently. All 10 sleep simultaneously. Total time = 1 sleep, not 10. <em>This is async's real power.</em></div>
+        <span class="fc-tag" style="background:rgba(52,211,153,0.12);color:var(--agath)">asyncio.gather() · true concurrent</span>
+      </div>
+
+      <div class="fcard fe">
+        <div class="fc-file">e_threadpool_sleep.py</div>
+        <div class="fc-title" style="color:var(--thread)">🔵 E — ThreadPool Executor</div>
+        <div class="fc-time" style="background:rgba(129,140,248,0.15);color:var(--thread)">~1 second</div>
+        <div class="fc-desc">Spawns 100 OS threads via <code>ThreadPoolExecutor(max_workers=100)</code>. Each thread runs <code>time.sleep(1)</code> (blocking!) simultaneously. Different mechanism — real OS threads, not coroutines.</div>
+        <span class="fc-tag" style="background:rgba(129,140,248,0.12);color:var(--thread)">OS threads · 100 real threads</span>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:28px">
+      <div class="callout-title">💡 The Crucial Insight — All 4 Are IO-Bound</div>
+      <p>
+        All 4 files simulate <strong>IO-bound work</strong> — sleeping = waiting for the network, database, or disk. The CPU does zero work during a sleep. This is exactly the same as waiting for an LLM API response.<br/><br/>
+        IO-bound tasks are the sweet spot for both async and threading. Neither makes the CPU work faster — they just stop wasting time <em>waiting</em> one-at-a-time. File A wastes 99 seconds of idle time. Files C and E use that time.
+      </p>
+    </div>
+
+    <!-- CORE CONCEPTS CARDS -->
+    <div class="cards-grid" style="margin-top:32px">
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--sleep)"></div>
+        <div class="card-icon">⏱️</div>
+        <h3><code>time.sleep()</code> vs <code>asyncio.sleep()</code></h3>
+        <p><code>time.sleep(1)</code> — blocks the <strong>OS thread</strong>. The entire thread freezes. Nothing else can run.<br/><code>asyncio.sleep(1)</code> — suspends the <strong>coroutine</strong> only. The event loop is free to run other coroutines during the wait.</p>
+        <span class="pill" style="background:rgba(251,191,36,0.12);color:var(--sleep)">critical difference</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--gather)"></div>
+        <div class="card-icon">🌐</div>
+        <h3><code>asyncio.gather(*tasks)</code></h3>
+        <p>Takes multiple coroutines and runs them <strong>all concurrently</strong> in the same event loop. Each hits its <code>await</code> point and suspends, allowing others to start. Returns all results when all complete. The key to async's performance benefit.</p>
+        <span class="pill" style="background:rgba(56,189,248,0.12);color:var(--gather)">concurrent, not parallel</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--thread)"></div>
+        <div class="card-icon">🧵</div>
+        <h3>ThreadPoolExecutor</h3>
+        <p>Spawns real OS threads. Each thread runs independently and <em>can</em> block. Python's GIL (Global Interpreter Lock) prevents true CPU-parallel execution, but for IO-bound code (sleep, network) threads release the GIL and run truly in parallel.</p>
+        <span class="pill" style="background:rgba(129,140,248,0.12);color:var(--thread)">real OS threads · concurrent IO</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--tid)"></div>
+        <div class="card-icon">🆔</div>
+        <h3><code>threading.get_ident()</code> — Thread ID Proof</h3>
+        <p>Files B and C print <code>tid:XXXXXX</code> — the OS thread ID of the running code. The key revelation: all coroutines print the <strong>same thread ID</strong>. Proof that async runs on a <em>single thread</em>, not multiple. File E would show different IDs.</p>
+        <span class="pill" style="background:rgba(167,139,250,0.12);color:var(--tid)">single-thread proven</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--aseq)"></div>
+        <div class="card-icon">⚠️</div>
+        <h3>The B Trap — Async Without Gain</h3>
+        <p>File B is the most common async mistake: using <code>async def</code> and <code>await</code>, but awaiting each call <em>sequentially in a loop</em>. You get the complexity of async but none of the speed benefit. <code>for i in range: await call(i)</code> is still serial.</p>
+        <span class="pill" style="background:rgba(251,146,60,0.12);color:var(--aseq)">async syntax ≠ async speed</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--agath)"></div>
+        <div class="card-icon">📦</div>
+        <h3>List Comprehension + <code>*</code> Unpack</h3>
+        <p>File C: <code>tasks = [func(i) for i in range(10)]</code> creates a list of coroutines (not running yet!). Then <code>asyncio.gather(*tasks)</code> unpacks them as separate arguments. The <code>*</code> splat operator turns a list into positional args.</p>
+        <span class="pill" style="background:rgba(52,211,153,0.12);color:var(--agath)">coroutines ≠ running</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 2 — TIMELINES ════════ -->
+<div class="section" id="timeline">
+  <div class="container">
+    <div class="section-tag">Section 02</div>
+    <h2>Execution Timelines — Visual Proof</h2>
+    <p class="subtitle">Each approach shown at the same time scale. Same total work. Radically different completion times.</p>
+
+    <!-- A: SYNC -->
+    <div class="worker-wrap">
+      <div class="w-label" style="color:var(--sync)">A — Sync: 1 thread, 5 tasks shown (× 100 in reality = 100s)</div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--sync)">Thread 1</span>
+        <div class="w-timeline">
+          <div class="wb wb-run" style="width:70px">run(0)</div>
+          <div class="wb wb-wait" style="flex:1">😴 sleep 1s</div>
+          <div class="wb wb-run" style="width:70px">run(1)</div>
+          <div class="wb wb-wait" style="flex:1">😴 sleep 1s</div>
+          <div class="wb wb-run" style="width:40px">…</div>
+          <div class="wb wb-wait" style="flex:1">😴 sleep 1s × 97 more</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--sync);margin-top:8px">Total: 100 × 1s = 100 seconds. Thread idle 99% of the time.</div>
+    </div>
+
+    <!-- B: ASYNC SEQUENTIAL -->
+    <div class="worker-wrap" style="margin-top:14px">
+      <div class="w-label" style="color:var(--aseq)">B — Async Sequential: 1 event loop, 5 tasks shown (10 total = ~10s)</div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--aseq)">Event Loop</span>
+        <div class="w-timeline">
+          <div class="wb wb-async" style="width:60px">call(0)</div>
+          <div class="wb wb-sus" style="flex:1">⏸ suspended (awaiting 0)</div>
+          <div class="wb wb-async" style="width:60px">call(1)</div>
+          <div class="wb wb-sus" style="flex:1">⏸ suspended (awaiting 1)</div>
+          <div class="wb wb-async" style="width:40px">…</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--aseq);margin-top:8px">Async syntax, but calls one-at-a-time. 10 × 1s = 10s. Still serial.</div>
+    </div>
+
+    <!-- C: ASYNC GATHER -->
+    <div class="worker-wrap" style="margin-top:14px">
+      <div class="w-label" style="color:var(--agath)">C — Async Gather: all 10 coroutines fire simultaneously = ~1s</div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--agath)">Task 0</span>
+        <div class="w-timeline">
+          <div class="wb wb-async" style="width:50px">start</div>
+          <div class="wb wb-io" style="flex:1">asyncio.sleep(1) ← suspended, event loop free</div>
+          <div class="wb wb-async" style="width:70px">→ done ✓</div>
+        </div>
+      </div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--agath)">Task 1</span>
+        <div class="w-timeline">
+          <div class="wb wb-async" style="width:50px">start</div>
+          <div class="wb wb-io" style="flex:1">asyncio.sleep(1) ← overlapping with task 0!</div>
+          <div class="wb wb-async" style="width:70px">→ done ✓</div>
+        </div>
+      </div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--agath)">Tasks 2–9</span>
+        <div class="w-timeline">
+          <div class="wb wb-async" style="width:50px">start</div>
+          <div class="wb wb-io" style="flex:1">asyncio.sleep(1) ← all overlapping!</div>
+          <div class="wb wb-async" style="width:70px">→ done ✓</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--agath);margin-top:8px">All 10 sleep simultaneously. Total: max(1s, 1s, ...) = ~1 second!</div>
+    </div>
+
+    <!-- E: THREADPOOL -->
+    <div class="worker-wrap" style="margin-top:14px">
+      <div class="w-label" style="color:var(--thread)">E — ThreadPool: 100 OS threads, each blocks independently = ~1s</div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--thread)">Thread 0</span>
+        <div class="w-timeline">
+          <div class="wb wb-th" style="width:50px">start</div>
+          <div class="wb wb-io" style="flex:1">time.sleep(1) ← OS blocks this thread (but others run!)</div>
+          <div class="wb wb-th" style="width:70px">→ done ✓</div>
+        </div>
+      </div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--thread)">Thread 1</span>
+        <div class="w-timeline">
+          <div class="wb wb-th" style="width:50px">start</div>
+          <div class="wb wb-io" style="flex:1">time.sleep(1) ← independent OS thread!</div>
+          <div class="wb wb-th" style="width:70px">→ done ✓</div>
+        </div>
+      </div>
+      <div class="w-row">
+        <span class="w-tag" style="color:var(--thread)">Threads 2–99</span>
+        <div class="w-timeline">
+          <div class="wb wb-th" style="width:50px">start</div>
+          <div class="wb wb-io" style="flex:1">time.sleep(1) ← 100 real OS threads sleeping in parallel</div>
+          <div class="wb wb-th" style="width:70px">→ done ✓</div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--thread);margin-top:8px">100 threads sleeping simultaneously. ~1s total. But: 100 OS threads created/destroyed.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 3 — GATHER ════════ -->
+<div class="section" id="gather">
+  <div class="container">
+    <div class="section-tag">Section 03</div>
+    <h2><code>asyncio.gather()</code> — Step by Step</h2>
+    <p class="subtitle">The most important async pattern. How File C achieves 10× speedup over File B.</p>
+
+    <div class="gather-box">
+
+      <div class="gb-step">
+        <div class="gb-num">1</div>
+        <div class="gb-body">
+          <h4>Create coroutines — but don't run them yet</h4>
+          <p>A list comprehension creates the coroutine objects. <strong>Calling a coroutine function does NOT run it</strong> — it just creates a coroutine object waiting to be scheduled. At this point, no sleep has started.</p>
+          <div class="gb-code"><span style="color:var(--vr)">tasks</span> = [<span style="color:var(--agc)">sleep_for_some_time</span>(<span style="color:var(--nm)">i</span>) <span style="color:var(--kw)">for</span> <span style="color:var(--nm)">i</span> <span style="color:var(--kw)">in</span> <span style="color:var(--fn)">range</span>(<span style="color:var(--nm)">10</span>)]
+<span style="color:var(--muted);font-style:italic"># tasks = [&lt;coroutine object&gt;, &lt;coroutine object&gt;, ...]  ← not running!</span></div>
+        </div>
+      </div>
+
+      <div class="gb-step">
+        <div class="gb-num">2</div>
+        <div class="gb-body">
+          <h4>gather() wraps all coroutines and schedules them together</h4>
+          <p><code>asyncio.gather(*tasks)</code> unpacks the list as separate arguments. gather() registers all of them with the event loop simultaneously — like dropping all orders at the kitchen counter at once.</p>
+          <div class="gb-code"><span style="color:var(--gac)">asyncio</span>.<span style="color:var(--fn)">gather</span>(<span style="color:var(--nm)">*</span><span style="color:var(--vr)">tasks</span>)
+<span style="color:var(--muted);font-style:italic"># * unpacks: gather(coro0, coro1, coro2, ..., coro9)</span>
+<span style="color:var(--muted);font-style:italic"># All 10 coroutines now known to the event loop</span></div>
+        </div>
+      </div>
+
+      <div class="gb-step">
+        <div class="gb-num">3</div>
+        <div class="gb-body">
+          <h4>Each coroutine starts, hits asyncio.sleep(1), and suspends</h4>
+          <p>Event loop starts task 0 → it runs until <code>await asyncio.sleep(1)</code> → suspends. Immediately starts task 1 → it suspends. Repeats for all 10. All 10 are now sleeping <em>simultaneously</em> in under a millisecond.</p>
+          <div class="gb-code"><span style="color:var(--muted);font-style:italic"># Event loop rapidly starts all coroutines:
+# task0: print(tid) → await asyncio.sleep(1) → SUSPENDED
+# task1: print(tid) → await asyncio.sleep(1) → SUSPENDED
+# ...
+# task9: print(tid) → await asyncio.sleep(1) → SUSPENDED
+# All 10 sleeping simultaneously!</span></div>
+        </div>
+      </div>
+
+      <div class="gb-step">
+        <div class="gb-num">4</div>
+        <div class="gb-body">
+          <h4>After ~1 second, all coroutines wake up and complete</h4>
+          <p>The event loop is notified as each sleep expires. Each coroutine resumes from after <code>await asyncio.sleep(1)</code>, executes <code>return value * 10</code>, and completes. gather() collects all return values into a list.</p>
+          <div class="gb-code"><span style="color:var(--vr)">values</span> = <span style="color:var(--awc)">await</span> <span style="color:var(--gac)">asyncio</span>.<span style="color:var(--fn)">gather</span>(<span style="color:var(--nm)">*</span><span style="color:var(--vr)">tasks</span>)
+<span style="color:var(--muted);font-style:italic"># values = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+# ORDER PRESERVED — even though they completed async!</span>
+<span style="color:var(--fn)">print</span>(<span style="color:var(--fn)">sum</span>(<span style="color:var(--vr)">values</span>))  <span style="color:var(--muted);font-style:italic"># 450</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout sky" style="margin-top:24px">
+      <div class="callout-title">📌 gather() Preserves Order — Important!</div>
+      <p>
+        Even though the 10 coroutines complete in non-deterministic order (whichever sleep expires first), <code>asyncio.gather()</code> returns results in the <strong>same order as the input tasks</strong>. <code>values[0]</code> is always the result of <code>sleep_for_some_time(0)</code>, regardless of which task finished first. This makes gather() safe to use when order matters.
+      </p>
+    </div>
+
+    <div class="callout orange" style="margin-top:14px">
+      <div class="callout-title">⚠️ Why File B Is Slow Even Though It Uses async</div>
+      <p>
+        File B: <code>for i in range(10): res = await sleep_for_some_time(i)</code><br/>
+        This loop <code>await</code>s each call and <strong>waits for it to finish before moving to the next</strong>. Only one coroutine is ever active at a time. The event loop is idle during each sleep. Async = non-blocking capability, but you have to use <code>gather()</code> or <code>create_task()</code> to actually run things concurrently.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 4 — THREADPOOL ════════ -->
+<div class="section" id="threadpool">
+  <div class="container">
+    <div class="section-tag">Section 04</div>
+    <h2>ThreadPoolExecutor — The Other Way</h2>
+    <p class="subtitle">File E uses real OS threads instead of coroutines. Same speed, different mechanism.</p>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-stripe" style="background:var(--thread)"></div>
+        <div class="card-icon">🔧</div>
+        <h3>ThreadPoolExecutor</h3>
+        <p>A <code>concurrent.futures</code> class that manages a <strong>pool of OS threads</strong>. <code>max_workers=100</code> creates up to 100 threads. <code>executor.submit(func, arg)</code> dispatches one call to a thread and returns a <code>Future</code> object immediately.</p>
+        <span class="pill" style="background:rgba(129,140,248,0.12);color:var(--thread)">from concurrent.futures</span>
+      </div>
+      <div class="card">
+        <div class="card-stripe" style="background:var(--gather)"></div>
+        <div class="card-icon">🔮</div>
+        <h3>Future Object</h3>
+        <p>A <code>Future</code> represents a result that doesn't exist yet — a <em>promise</em> of a future value. <code>executor.submit()</code> returns one immediately. <code>future.result()</code> blocks until the value is ready. Similar to a Promise in JavaScript.</p>
+        <span class="pill" style="background:rgba(56,189,248,0.12);color:var(--gather)">result pending</span>
+      </div>
+      <div class="card">
+        <div class="card-stripe" style="background:var(--agath)"></div>
+        <div class="card-icon">✅</div>
+        <h3><code>as_completed()</code></h3>
+        <p><code>concurrent.futures.as_completed(futures)</code> yields Futures in completion order — whichever thread finishes first comes first. Unlike gather() it doesn't preserve input order. Useful when you want to process results as they arrive.</p>
+        <span class="pill" style="background:rgba(52,211,153,0.12);color:var(--agath)">completion order, not input order</span>
+      </div>
+      <div class="card">
+        <div class="card-stripe" style="background:var(--sync)"></div>
+        <div class="card-icon">⚡</div>
+        <h3><code>with</code> Statement</h3>
+        <p><code>with ThreadPoolExecutor(...) as executor</code> — the <code>with</code> block automatically calls <code>executor.shutdown(wait=True)</code> when it exits. This waits for all submitted tasks to finish and cleans up all threads. No dangling threads.</p>
+        <span class="pill" style="background:rgba(244,63,94,0.12);color:var(--sync)">context manager — auto cleanup</span>
+      </div>
+    </div>
+
+    <!-- ASYNC vs THREADS comparison -->
+    <table style="margin-top:28px">
+      <thead><tr><th>Feature</th><th>asyncio.gather() (File C)</th><th>ThreadPoolExecutor (File E)</th></tr></thead>
+      <tbody>
+        <tr><td>Concurrency model</td><td><span class="y">Cooperative (single thread)</span></td><td><span class="m">Preemptive (OS schedules)</span></td></tr>
+        <tr><td>Number of threads</td><td><span class="y">1 (the event loop thread)</span></td><td><span class="n">100 (one per task here)</span></td></tr>
+        <tr><td>Memory overhead</td><td><span class="y">Low — coroutines are tiny</span></td><td><span class="n">High — each thread ~1-8 MB stack</span></td></tr>
+        <tr><td>Works with time.sleep()</td><td><span class="n">No — blocks event loop!</span></td><td><span class="y">Yes — threads are independent</span></td></tr>
+        <tr><td>Works with asyncio.sleep()</td><td><span class="y">Yes — yields to event loop</span></td><td><span class="n">Overkill, but works</span></td></tr>
+        <tr><td>Max practical concurrent tasks</td><td><span class="y">Thousands</span></td><td><span class="n">Hundreds (OS limit)</span></td></tr>
+        <tr><td>Performance for IO-bound</td><td><span class="y">Excellent</span></td><td><span class="y">Excellent</span></td></tr>
+        <tr><td>Performance for CPU-bound</td><td><span class="n">Poor (GIL)</span></td><td><span class="n">Poor (GIL)</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout indigo" style="margin-top:24px">
+      <div class="callout-title">🔑 When to Use Threads vs Async for LLM Work</div>
+      <p>
+        For pydantic_ai LLM calls: <strong>prefer async</strong>. Every serious LLM framework (FastAPI, pydantic_ai, httpx) is built on async. Threads work but carry more overhead and don't compose well with async frameworks.<br/><br/>
+        ThreadPoolExecutor shines when you need to call <strong>legacy blocking libraries</strong> from async code — e.g., a database driver that doesn't support async. In that case, use <code>asyncio.get_event_loop().run_in_executor(executor, blocking_func)</code> to run blocking code in a thread without freezing the event loop.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 5 — THREAD ID PROOF ════════ -->
+<div class="section" id="tid">
+  <div class="container">
+    <div class="section-tag">Section 05</div>
+    <h2>The Thread ID Proof — <code>threading.get_ident()</code></h2>
+    <p class="subtitle">Files B and C print the thread ID. The output is the most revealing thing in this entire set of files.</p>
+
+    <div class="tid-box">
+      <div class="tid-head">File B output — async sequential (10 calls, one at a time)</div>
+      <div><span style="color:var(--tdc)">tid:140234567890</span> <span style="color:var(--muted)">← call 0 starts</span></div>
+      <div><span style="color:var(--tdc)">tid:140234567890</span> <span style="color:var(--muted)">← call 1 starts (SAME thread ID!)</span></div>
+      <div><span style="color:var(--tdc)">tid:140234567890</span> <span style="color:var(--muted)">← call 2 ... all identical</span></div>
+      <div><span style="color:var(--muted);font-style:italic">... 7 more identical thread IDs ...</span></div>
+      <div style="margin-top:10px"><span style="color:var(--agath)">450</span></div>
+      <div><span style="color:var(--aseq)">Time taken(Async-no batch): 10.01 seconds</span></div>
+    </div>
+
+    <div class="tid-box" style="margin-top:14px">
+      <div class="tid-head">File C output — async gather (all 10 start at once)</div>
+      <div><span style="color:var(--tdc)">tid:140234567890</span> <span style="color:var(--muted)">← task 0 prints thread ID</span></div>
+      <div><span style="color:var(--tdc)">tid:140234567890</span> <span style="color:var(--muted)">← task 1 — SAME thread ID!</span></div>
+      <div><span style="color:var(--tdc)">tid:140234567890</span> <span style="color:var(--muted)">← task 2 ... ALL same ID</span></div>
+      <div><span style="color:var(--muted);font-style:italic">... 7 more — all the same thread ID ...</span></div>
+      <div style="margin-top:10px"><span style="color:var(--agath)">450</span></div>
+      <div><span style="color:var(--agath)">Time taken(Async-batch): 1.00 seconds</span></div>
+    </div>
+
+    <div class="callout magenta" style="margin-top:20px">
+      <div class="callout-title">🧠 What the Same Thread ID PROVES</div>
+      <p>
+        Every single coroutine — all 10 of them — runs on the <strong>exact same OS thread</strong>. There is only one thread. The event loop switches between them by suspending at <code>await</code> points.<br/><br/>
+        This is <strong>cooperative multitasking</strong>: each coroutine voluntarily yields control at <code>await asyncio.sleep(1)</code>. The event loop switches to the next one. No OS intervention. No thread context switches. Just Python calling the next ready coroutine.<br/><br/>
+        File E with threads would show <strong>100 different thread IDs</strong> — proof that threading uses real OS threads while async uses just one.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 6 — RESULTS ════════ -->
+<div class="section" id="results">
+  <div class="container">
+    <div class="section-tag">Section 06</div>
+    <h2>Performance Results — Summary</h2>
+    <p class="subtitle">Approximate times on a typical machine (individual times vary — the ratios are what matter).</p>
+
+    <div class="results-wrap">
+      <div class="w-label" style="margin-bottom:18px">Completion time comparison (lower = faster)</div>
+
+      <div class="rb-row">
+        <span class="rb-label" style="color:var(--sync)">A: Sync (100 tasks)</span>
+        <div class="rb-bar-bg">
+          <div class="rb-bar" style="width:100%;background:linear-gradient(90deg,rgba(244,63,94,0.6),rgba(244,63,94,0.3))">~100 seconds</div>
+        </div>
+        <span class="rb-time">~100s</span>
+      </div>
+
+      <div class="rb-row">
+        <span class="rb-label" style="color:var(--aseq)">B: Async Sequential (10 tasks)</span>
+        <div class="rb-bar-bg">
+          <div class="rb-bar" style="width:10%;background:linear-gradient(90deg,rgba(251,146,60,0.7),rgba(251,146,60,0.3))">~10s</div>
+        </div>
+        <span class="rb-time">~10s</span>
+      </div>
+
+      <div class="rb-row">
+        <span class="rb-label" style="color:var(--agath)">C: Async Gather (10 tasks)</span>
+        <div class="rb-bar-bg">
+          <div class="rb-bar" style="width:1%;background:linear-gradient(90deg,rgba(52,211,153,0.8),rgba(52,211,153,0.4))">~1s</div>
+        </div>
+        <span class="rb-time">~1s ✅</span>
+      </div>
+
+      <div class="rb-row">
+        <span class="rb-label" style="color:var(--thread)">E: ThreadPool (100 tasks)</span>
+        <div class="rb-bar-bg">
+          <div class="rb-bar" style="width:1%;background:linear-gradient(90deg,rgba(129,140,248,0.8),rgba(129,140,248,0.4))">~1s</div>
+        </div>
+        <span class="rb-time">~1s ✅</span>
+      </div>
+
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-top:14px">Note: B uses 10 tasks vs A/E's 100 — a fair comparison would make B ~100s too if it used 100 tasks sequentially.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 7 — COMMENTED CODE ════════ -->
+<div class="section" id="code">
+  <div class="container">
+    <div class="section-tag">Section 07</div>
+    <h2>Commented Code — All 4 Files</h2>
+    <p class="subtitle">Every function, every keyword, every design decision explained.</p>
+
+    <!-- FILE A -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">a_sync_sleep.py</span>
+      <span class="file-badge" style="color:var(--sync);border-color:var(--sync)">SYNC — BASELINE ~100s</span>
+    </div>
+<pre><span class="kw">import</span> <span class="cls">time</span>
+<span class="cm"># Only the time module — no async, no threads. Pure synchronous Python.</span>
+
+<span class="kw">def</span> <span class="fn">sleep_for_some_time</span>(<span class="vr">value</span>: <span class="cls">int</span>) -> <span class="cls">int</span>:
+    <span class="slc">time</span>.<span class="fn">sleep</span>(<span class="nm">1</span>)
+    <span class="cm">    # time.sleep(1) = BLOCK this thread for 1 second.
+    # The OS suspends the thread at OS level.
+    # Nothing else can run on this thread during the wait.
+    # This is the critical difference from asyncio.sleep(1).</span>
+    <span class="kw">return</span> <span class="vr">value</span> * <span class="nm">10</span>
+    <span class="cm">    # Simple multiply — represents "work done after the wait"</span>
+
+<span class="kw">def</span> <span class="fn">main</span>() -> <span class="kw">None</span>:
+    <span class="vr">tot_count</span> = <span class="nm">0</span>
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">100</span>):
+        <span class="vr">tot_count</span> += <span class="fn">sleep_for_some_time</span>(<span class="vr">i</span>)
+    <span class="cm">        # Sequential for-loop. Each call WAITS 1 second before the next starts.
+    # Call 0 finishes at t=1s. Call 1 finishes at t=2s. ... Call 99 at t=100s.
+    # The CPU is idle for 99% of this time — just waiting for sleep() to return.</span>
+    <span class="fn">print</span>(<span class="vr">tot_count</span>)
+    <span class="cm">    # sum(i*10 for i in range(100)) = 10*(0+1+...+99) = 10*4950 = 49500</span>
+
+<span class="vr">start_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="cm"># perf_counter() = high-resolution timer (nanosecond precision).
+# Better than time.time() for benchmarking — not affected by system clock changes.</span>
+<span class="fn">main</span>()
+<span class="vr">end_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Time taken(Sync): {end_time - start_time:.2f} seconds"</span>)
+<span class="cm"># Output: Time taken(Sync): 100.xx seconds</span></pre>
+
+    <!-- FILE B -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">b_async_sleep.py</span>
+      <span class="file-badge" style="color:var(--aseq);border-color:var(--aseq)">ASYNC SEQUENTIAL — COMMON MISTAKE ~10s</span>
+    </div>
+<pre><span class="kw">import</span> <span class="cls">asyncio</span>
+<span class="kw">import</span> <span class="tdc">threading</span>
+<span class="cm"># threading imported only to call threading.get_ident()
+# — proves all coroutines run on the same thread.</span>
+<span class="kw">import</span> <span class="cls">time</span>
+
+<span class="kw">async def</span> <span class="fn">sleep_for_some_time</span>(<span class="vr">value</span>: <span class="cls">int</span>) -> <span class="cls">int</span>:
+    <span class="fn">print</span>(<span class="str">"tid:%s"</span> % <span class="tdc">threading</span>.<span class="fn">get_ident</span>())
+    <span class="cm">    # threading.get_ident() = the ID of the current OS thread.
+    # KEY OBSERVATION: all coroutines print the SAME number.
+    # Proof: async runs entirely on a single thread.</span>
+
+    <span class="awc">await</span> <span class="cls">asyncio</span>.<span class="fn">sleep</span>(<span class="nm">1</span>)
+    <span class="cm">    # asyncio.sleep(1) = YIELD control to the event loop for 1 second.
+    # This does NOT block the thread. The event loop is free to run
+    # other coroutines during this 1-second wait.
+    # Contrast: time.sleep(1) would freeze the thread entirely.</span>
+    <span class="kw">return</span> <span class="vr">value</span> * <span class="nm">10</span>
+
+<span class="kw">async def</span> <span class="fn">main</span>() -> <span class="kw">None</span>:
+    <span class="vr">tot_count</span> = <span class="nm">0</span>
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">10</span>):
+        <span class="vr">res</span> = <span class="awc">await</span> <span class="fn">sleep_for_some_time</span>(<span class="vr">i</span>)
+        <span class="cm">        # ⚠️ THE TRAP: await inside a for-loop is still SERIAL.
+        # 'await' suspends main() and waits for THIS call to complete.
+        # Only then does the loop advance to i+1.
+        # Even though asyncio.sleep() doesn't block the thread,
+        # this loop pattern ensures only ONE call is active at a time.
+        # → 10 calls × 1s each = 10 seconds total.</span>
+        <span class="vr">tot_count</span> += <span class="vr">res</span>
+    <span class="fn">print</span>(<span class="vr">tot_count</span>)
+
+<span class="vr">start_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="cls">asyncio</span>.<span class="fn">run</span>(<span class="fn">main</span>())
+<span class="vr">end_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Time taken(Async-no batch): {end_time - start_time:.2f} seconds"</span>)
+<span class="cm"># Output: Time taken(Async-no batch): 10.01 seconds
+# LESSON: async + sequential loop = no speedup over sync (just more complex)</span></pre>
+
+    <!-- FILE C -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">c_async_sleep.py</span>
+      <span class="file-badge" style="color:var(--agath);border-color:var(--agath)">ASYNC + GATHER — THE WINNER ~1s</span>
+    </div>
+<pre><span class="kw">import</span> <span class="cls">asyncio</span>
+<span class="kw">import</span> <span class="tdc">threading</span>
+<span class="kw">import</span> <span class="cls">time</span>
+
+<span class="kw">async def</span> <span class="fn">sleep_for_some_time</span>(<span class="vr">value</span>: <span class="cls">int</span>) -> <span class="cls">int</span>:
+    <span class="fn">print</span>(<span class="str">"tid:%s"</span> % <span class="tdc">threading</span>.<span class="fn">get_ident</span>())
+    <span class="cm">    # Same function as File B. Still same thread ID.
+    # The speedup comes from HOW we call it, not the function itself.</span>
+    <span class="awc">await</span> <span class="cls">asyncio</span>.<span class="fn">sleep</span>(<span class="nm">1</span>)
+    <span class="kw">return</span> <span class="vr">value</span> * <span class="nm">10</span>
+
+<span class="kw">async def</span> <span class="fn">main</span>() -> <span class="kw">None</span>:
+    <span class="vr">tasks</span> = [<span class="fn">sleep_for_some_time</span>(<span class="vr">i</span>) <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">10</span>)]
+    <span class="cm">    # List comprehension creates 10 COROUTINE OBJECTS.
+    # CRITICAL: calling sleep_for_some_time(i) does NOT run the function.
+    # It creates a coroutine object — a paused, ready-to-run function.
+    # At this point: no tid print has happened, no sleep has started.
+    # tasks = [coro0, coro1, ..., coro9]  ← not running!</span>
+
+    <span class="vr">values</span> = <span class="awc">await</span> <span class="gac">asyncio</span>.<span class="fn">gather</span>(<span class="nm">*</span><span class="vr">tasks</span>)
+    <span class="cm">    # *tasks = unpack the list: gather(coro0, coro1, ..., coro9)
+    #
+    # asyncio.gather() does:
+    # 1. Wraps each coroutine in a Task and schedules all of them
+    # 2. Returns a new coroutine (hence 'await')
+    # 3. Runs until ALL tasks complete, then returns all results
+    #
+    # EXECUTION ORDER:
+    #   → start coro0: prints tid, hits asyncio.sleep(1), SUSPENDS
+    #   → immediately start coro1: prints tid, hits sleep, SUSPENDS
+    #   → immediately start coro2: ... all 10 suspended within milliseconds
+    #   → event loop waits ~1 second
+    #   → all 10 wake up and complete (return value * 10)
+    #   → gather returns [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+    #
+    # ORDER GUARANTEE: values[i] = result of coro_i, always.
+    # Even if coro5 finished before coro2, values[2] is still coro2's result.</span>
+
+    <span class="fn">print</span>(<span class="fn">sum</span>(<span class="vr">values</span>))
+    <span class="cm">    # sum([0,10,20,30,40,50,60,70,80,90]) = 450</span>
+
+<span class="vr">start_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="cls">asyncio</span>.<span class="fn">run</span>(<span class="fn">main</span>())
+<span class="vr">end_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Time taken(Async-batch): {end_time - start_time:.2f} seconds"</span>)
+<span class="cm"># Output: Time taken(Async-batch): 1.00 seconds
+# 10× faster than File B. Same async function, different calling pattern.</span></pre>
+
+    <!-- FILE E -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">e_threadpool_sleep.py</span>
+      <span class="file-badge" style="color:var(--thread);border-color:var(--thread)">THREADPOOL — REAL THREADS ~1s</span>
+    </div>
+<pre><span class="kw">import</span> <span class="cls">time</span>
+<span class="kw">import</span> <span class="cls">concurrent.futures</span>
+<span class="cm"># concurrent.futures: Python standard library for thread/process pools.
+# Two executors: ThreadPoolExecutor (threads) and ProcessPoolExecutor (processes).
+# Here: threads for IO-bound work.</span>
+
+<span class="kw">def</span> <span class="fn">sleep_for_some_time</span>(<span class="vr">value</span>: <span class="cls">int</span>) -> <span class="cls">int</span>:
+    <span class="slc">time</span>.<span class="fn">sleep</span>(<span class="nm">1</span>)
+    <span class="cm">    # PLAIN time.sleep() — blocking!
+    # But that's fine here because each call runs in its OWN THREAD.
+    # Thread 5 blocking doesn't affect Thread 17 or Thread 42.
+    # 100 threads can all block simultaneously and independently.
+    # This is impossible in async — one time.sleep() would freeze the event loop.</span>
+    <span class="kw">return</span> <span class="vr">value</span> * <span class="nm">10</span>
+
+<span class="kw">def</span> <span class="fn">approach3</span>() -> <span class="kw">None</span>:
+    <span class="kw">with</span> <span class="thc">concurrent.futures</span>.<span class="cls">ThreadPoolExecutor</span>(<span class="at">max_workers</span>=<span class="nm">100</span>) <span class="kw">as</span> <span class="vr">executor</span>:
+        <span class="cm">        # 'with' = context manager. On exit, calls executor.shutdown(wait=True):
+        # → waits for ALL submitted tasks to complete
+        # → releases all thread resources
+        # max_workers=100 → can run up to 100 threads simultaneously.
+        # We submit exactly 100 tasks, so all run concurrently.</span>
+
+        <span class="vr">futures</span> = [<span class="vr">executor</span>.<span class="fn">submit</span>(<span class="fn">sleep_for_some_time</span>, <span class="vr">i</span>) <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">100</span>)]
+        <span class="cm">        # executor.submit(func, arg) = "run func(arg) on a thread from the pool"
+        # Returns immediately with a Future object (the result isn't ready yet).
+        # 100 futures created nearly instantly → 100 threads all start sleeping.
+        # Note: unlike coroutines, threads START running immediately when submitted.</span>
+
+        <span class="vr">results</span> = [
+            <span class="vr">future</span>.<span class="fn">result</span>() <span class="kw">for</span> <span class="vr">future</span> <span class="kw">in</span> <span class="thc">concurrent.futures</span>.<span class="fn">as_completed</span>(<span class="vr">futures</span>)
+        ]
+        <span class="cm">        # concurrent.futures.as_completed(futures):
+        # Yields Future objects as they COMPLETE — completion order, not submission order.
+        # future.result() = blocks until this specific future's result is ready,
+        # then returns the value.
+        #
+        # CONTRAST with gather():
+        #   gather() → preserves input order (result[0] = task 0's result)
+        #   as_completed() → completion order (result[0] = whichever thread finished first)
+        #
+        # For sum() it doesn't matter. If order matters, use zip(futures, results).</span>
+
+    <span class="fn">print</span>(<span class="fn">sum</span>(<span class="vr">results</span>))
+    <span class="cm">    # sum(i*10 for i in range(100)) = 49500
+    # BUT: as_completed() returns in completion order, so results aren't sorted.
+    # sum() still gives the right answer since addition is commutative.</span>
+
+<span class="vr">start_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="fn">approach3</span>()
+<span class="vr">end_time</span> = <span class="slc">time</span>.<span class="fn">perf_counter</span>()
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Time taken(Multi threading): {end_time - start_time:.2f} seconds"</span>)
+<span class="cm"># Output: Time taken(Multi threading): 1.01 seconds
+# 100 threads sleeping simultaneously — wall time = 1 sleep, not 100.</span></pre>
+
+    <div class="callout" style="margin-top:8px">
+      <div class="callout-title">🚀 The GenAI Connection — Why This Matters for LLM Agents</div>
+      <p>
+        When you call <code>await asyncio.gather(agent.run("q1"), agent.run("q2"), agent.run("q3"))</code>, you're doing exactly what File C does — but the "sleep" is the LLM network call. Three LLM queries that each take 1.5s complete in ~1.5s total, not 4.5s. For a pydantic_ai multi-agent pipeline making 10 parallel tool calls, the difference is:<br/><br/>
+        Sequential (File B pattern): 10 × 1.5s = 15 seconds<br/>
+        Concurrent (File C pattern): max(1.5s × 10) = ~1.5 seconds<br/><br/>
+        That's <strong>10× faster</strong> with the same code, same models, same hardware — just <code>gather()</code> instead of a for loop.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>⚡ GenAI Mentor · Sync vs Async vs Gather vs ThreadPool · algo-genai-2026</div>
+  <div style="margin-top:6px;color:#131e35">Don't wait one at a time. Gather them all. ⚡</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🤖 PydanticAI History Processors — Explained!</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f1a;
+    --card: #141728;
+    --card2: #1a1f35;
+    --accent1: #ff6b6b;
+    --accent2: #ffd93d;
+    --accent3: #6bcb77;
+    --accent4: #4d96ff;
+    --accent5: #c77dff;
+    --accent6: #ff9f43;
+    --text: #e8eaf6;
+    --muted: #8892b0;
+    --border: rgba(255,255,255,0.08);
+    --code-bg: #0a0c18;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #0d0f1a 0%, #1a0a2e 50%, #0a1628 100%);
+    padding: 60px 40px 50px;
+    text-align: center;
+    position: relative;
+    border-bottom: 2px solid var(--border);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(77,150,255,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 30%, rgba(199,125,255,0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-block;
+    background: linear-gradient(90deg, var(--accent4), var(--accent5));
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 16px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+  .hero h1 span { color: var(--accent2); }
+  .hero p {
+    max-width: 620px;
+    margin: 0 auto;
+    color: var(--muted);
+    font-size: 1.05rem;
+  }
+  .emoji-row { font-size: 2rem; margin-top: 20px; letter-spacing: 0.1em; }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── SECTION HEADERS ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 56px 0 24px;
+  }
+  .section-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--accent4);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+  .section-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.3rem, 3vw, 1.9rem);
+    font-weight: 700;
+  }
+
+  /* ── CONCEPT CARDS ── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+  .concept-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .concept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+  .concept-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+  .concept-card.blue::before  { background: linear-gradient(90deg, var(--accent4), var(--accent5)); }
+  .concept-card.green::before { background: linear-gradient(90deg, var(--accent3), var(--accent4)); }
+  .concept-card.red::before   { background: linear-gradient(90deg, var(--accent1), var(--accent6)); }
+  .concept-card.yellow::before{ background: linear-gradient(90deg, var(--accent2), var(--accent6)); }
+  .concept-card.purple::before{ background: linear-gradient(90deg, var(--accent5), var(--accent1)); }
+
+  .concept-icon { font-size: 2rem; margin-bottom: 12px; }
+  .concept-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .concept-card p { font-size: 0.93rem; color: var(--muted); }
+  .concept-card .kiddo {
+    margin-top: 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.87rem;
+    color: var(--accent2);
+    border-left: 3px solid var(--accent2);
+  }
+  .concept-card .kiddo::before { content: "👦 Like this: "; font-weight: 700; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 32px;
+  }
+  .flow-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--accent4);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .flow-step {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-step.highlight { border-color: var(--accent4); color: var(--accent4); }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+  /* ── FILE SECTIONS ── */
+  .file-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+  .file-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .file-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .badge-a { background: rgba(255,107,107,0.15); color: var(--accent1); border: 1px solid rgba(255,107,107,0.3); }
+  .badge-b { background: rgba(107,203,119,0.15); color: var(--accent3); border: 1px solid rgba(107,203,119,0.3); }
+  .badge-c { background: rgba(255,217,61,0.15);  color: var(--accent2); border: 1px solid rgba(255,217,61,0.3); }
+  .badge-d { background: rgba(199,125,255,0.15); color: var(--accent5); border: 1px solid rgba(199,125,255,0.3); }
+
+  .file-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .file-subtitle { font-size: 0.85rem; color: var(--muted); margin-left: auto; }
+
+  .file-body { padding: 0 24px 24px; }
+
+  .what-it-does {
+    background: var(--card2);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 20px 0;
+    border-left: 4px solid var(--accent4);
+  }
+  .what-it-does h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent4);
+    margin-bottom: 8px;
+  }
+  .what-it-does p { font-size: 0.92rem; color: var(--muted); }
+
+  /* ── CODE BLOCKS ── */
+  .code-wrap {
+    background: var(--code-bg);
+    border-radius: 12px;
+    overflow: auto;
+    border: 1px solid rgba(255,255,255,0.06);
+    margin: 16px 0;
+  }
+  .code-label {
+    background: rgba(255,255,255,0.04);
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    letter-spacing: 0.05em;
+  }
+  pre {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    padding: 20px;
+    overflow-x: auto;
+    tab-size: 4;
+  }
+
+  /* Syntax colors */
+  .kw  { color: #c77dff; }         /* keywords */
+  .fn  { color: #4d96ff; }         /* function names */
+  .cl  { color: #ffd93d; }         /* class names */
+  .st  { color: #6bcb77; }         /* strings */
+  .cm  { color: #636e8c; font-style: italic; } /* comments */
+  .nb  { color: #ff9f43; }         /* built-ins / special */
+  .num { color: #ff6b6b; }         /* numbers */
+  .param { color: #4ecdc4; }       /* parameters */
+
+  /* annotation callouts inside code */
+  .ann {
+    display: inline-block;
+    background: rgba(255,217,61,0.15);
+    color: var(--accent2);
+    border: 1px solid rgba(255,217,61,0.3);
+    border-radius: 6px;
+    padding: 0 8px;
+    font-size: 0.72rem;
+    font-style: normal;
+    vertical-align: middle;
+    margin-left: 6px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+  }
+
+  /* ── CONCEPT PILLS ── */
+  .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border: 1px solid;
+  }
+  .pill-blue   { background: rgba(77,150,255,0.12);  color: var(--accent4); border-color: rgba(77,150,255,0.3); }
+  .pill-green  { background: rgba(107,203,119,0.12); color: var(--accent3); border-color: rgba(107,203,119,0.3); }
+  .pill-yellow { background: rgba(255,217,61,0.12);  color: var(--accent2); border-color: rgba(255,217,61,0.3); }
+  .pill-red    { background: rgba(255,107,107,0.12); color: var(--accent1); border-color: rgba(255,107,107,0.3); }
+  .pill-purple { background: rgba(199,125,255,0.12); color: var(--accent5); border-color: rgba(199,125,255,0.3); }
+
+  /* ── COMPARISON TABLE ── */
+  .table-wrap { overflow-x: auto; margin: 20px 0; border-radius: 12px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: rgba(77,150,255,0.1); }
+  th {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent4);
+    padding: 14px 18px;
+    text-align: left;
+  }
+  td { padding: 13px 18px; font-size: 0.88rem; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-file { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--accent2); }
+
+  /* ── CALLOUT BOX ── */
+  .callout {
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .callout-icon { font-size: 1.4rem; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+  .callout-body h4 { font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 6px; }
+  .callout-body p  { font-size: 0.88rem; }
+  .callout.info    { background: rgba(77,150,255,0.08);  border: 1px solid rgba(77,150,255,0.2);  }
+  .callout.warn    { background: rgba(255,159,67,0.08);  border: 1px solid rgba(255,159,67,0.2);  }
+  .callout.tip     { background: rgba(107,203,119,0.08); border: 1px solid rgba(107,203,119,0.2); }
+  .callout.magic   { background: rgba(199,125,255,0.08); border: 1px solid rgba(199,125,255,0.2); }
+  .callout.info .callout-body h4    { color: var(--accent4); }
+  .callout.warn .callout-body h4    { color: var(--accent6); }
+  .callout.tip  .callout-body h4    { color: var(--accent3); }
+  .callout.magic .callout-body h4   { color: var(--accent5); }
+  .callout p { color: var(--muted); }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .hero, .concept-card, .file-block {
+    animation: fadeUp 0.5s ease both;
+  }
+  .concept-card:nth-child(1) { animation-delay: 0.05s; }
+  .concept-card:nth-child(2) { animation-delay: 0.10s; }
+  .concept-card:nth-child(3) { animation-delay: 0.15s; }
+  .concept-card:nth-child(4) { animation-delay: 0.20s; }
+  .concept-card:nth-child(5) { animation-delay: 0.25s; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .flow-row { flex-direction: column; align-items: flex-start; }
+    .file-subtitle { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     HERO
+════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-tag">🎓 GenAI / Agentic AI — Mentor Mode</div>
+  <h1>PydanticAI<br><span>History Processors</span> Explained</h1>
+  <p>How AI agents remember conversations — and how we control what they remember — using smart history filters &amp; summarizers.</p>
+  <div class="emoji-row">🤖 💬 🧠 ✂️ 📝 🔢</div>
+</div>
+
+<div class="container">
+
+<!-- ════════════════════════════════════
+     SECTION 0 — BIG PICTURE CONCEPTS
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">01</span>
+  <div class="section-line"></div>
+  <h2>🌍 Big Picture — What &amp; Why?</h2>
+</div>
+
+<div class="concept-grid">
+
+  <div class="concept-card blue">
+    <div class="concept-icon">🤖</div>
+    <h3>What is an AI Agent?</h3>
+    <p>An AI agent is a program that uses an LLM (like GPT or LLaMA) to think, respond, and use tools. It's not just a chatbot — it can take actions.</p>
+    <div class="kiddo">It's like a super-smart robot assistant who can answer questions AND do things like search the web or write files.</div>
+  </div>
+
+  <div class="concept-card green">
+    <div class="concept-icon">💬</div>
+    <h3>What is Message History?</h3>
+    <p>Every time you chat with an AI, it keeps a log of all past messages — both what YOU said (requests) and what the AI replied (responses). This is sent back with every new question so the AI remembers context.</p>
+    <div class="kiddo">It's like showing the AI a copy of your entire WhatsApp chat before asking it a new question every single time.</div>
+  </div>
+
+  <div class="concept-card red">
+    <div class="concept-icon">🚨</div>
+    <h3>The Problem — Context Windows</h3>
+    <p>AI models can only read a limited amount of text at once (called a <strong>context window</strong>). Long conversations use too many <strong>tokens</strong> (word-pieces), making the AI slow and expensive — or crashing it.</p>
+    <div class="kiddo">Imagine if you could only remember the last 10 pages of a book. If the book gets too long, you have to forget some pages!</div>
+  </div>
+
+  <div class="concept-card yellow">
+    <div class="concept-icon">✂️</div>
+    <h3>History Processors = The Solution</h3>
+    <p>A <strong>history_processor</strong> is a function you plug into an agent. Before each new call, it <em>trims, filters, or summarizes</em> the history so only the most useful messages are sent to the AI.</p>
+    <div class="kiddo">It's like a librarian who removes old, unneeded pages from the book before you read it — keeping just the good bits!</div>
+  </div>
+
+  <div class="concept-card purple">
+    <div class="concept-icon">🪙</div>
+    <h3>What are Tokens?</h3>
+    <p>Tokens are small pieces of text — roughly ¾ of a word. AI models charge by token and have limits on how many they can process. Tracking tokens helps us know <em>when</em> to trim the history.</p>
+    <div class="kiddo">If words are Lego bricks, tokens are the individual bumps on each brick. The more text, the more bumps — and there's a limit to how many fit in the box!</div>
+  </div>
+
+</div>
+
+<!-- FLOW DIAGRAM -->
+<div class="flow-box">
+  <div class="flow-title">📊 How History Processors Fit In</div>
+  <div class="flow-row">
+    <div class="flow-step">User sends new message</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step highlight">history_processor runs</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Filtered/trimmed history</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Sent to AI model</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">AI responds</div>
+  </div>
+  <div class="flow-row" style="margin-top:8px;">
+    <div class="flow-step" style="opacity:0.5">Without processor: ALL past messages sent (slow &amp; expensive)</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step highlight">With processor: only what matters sent (fast &amp; cheap!)</div>
+  </div>
+</div>
+
+<div class="callout info">
+  <div class="callout-icon">🐍</div>
+  <div class="callout-body">
+    <h4>What is PydanticAI?</h4>
+    <p>PydanticAI is a Python framework for building AI agents. It uses <strong>Pydantic</strong> (a data-validation library) to define structured inputs/outputs for agents. The <code>Agent</code> class wraps an LLM and lets you attach tools, instructions, and history processors.</p>
+  </div>
+</div>
+
+<div class="callout magic">
+  <div class="callout-icon">🧩</div>
+  <div class="callout-body">
+    <h4>What is RunContext (Deps)?</h4>
+    <p>Some history processor functions accept a <strong>RunContext</strong> object as their first argument. This lets you pass extra data (like token counts, limits, config) <em>into</em> the processor at runtime — via a <code>@dataclass</code> called <strong>Deps</strong>. Think of it as passing a settings bag to the function.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     COMPARISON TABLE
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">02</span>
+  <div class="section-line"></div>
+  <h2>📋 All Four Files — Quick Comparison</h2>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Strategy</th>
+        <th>Uses Deps?</th>
+        <th>Use When...</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="td-file">a_req_res_only_filter.py</td>
+        <td>Keep only Requests <em>or</em> only Responses</td>
+        <td>❌ No</td>
+        <td>You want to see what the AI said (or only what user asked)</td>
+      </tr>
+      <tr>
+        <td class="td-file">b_most_recent_only_filter.py</td>
+        <td>Keep only last N messages</td>
+        <td>✅ Yes (num_messages_to_keep)</td>
+        <td>You only care about recent context, not full history</td>
+      </tr>
+      <tr>
+        <td class="td-file">c_token_count_based_filter.py</td>
+        <td>Trim when token budget exceeded</td>
+        <td>✅ Yes (total_tokens, token_limit, num_messages_to_keep)</td>
+        <td>You want smart trimming only when cost/limit is hit</td>
+      </tr>
+      <tr>
+        <td class="td-file">d_token_count_based_summarizer.py</td>
+        <td>Summarize old messages when over limit</td>
+        <td>✅ Yes (total_tokens, token_limit)</td>
+        <td>You want to <em>compress</em> history, not lose it entirely</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════════════════════════════════
+     FILE A
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">03</span>
+  <div class="section-line"></div>
+  <h2>📁 File A — Request / Response Filter</h2>
+</div>
+
+<div class="file-block">
+  <div class="file-header">
+    <span class="file-badge badge-a">a_req_res_only_filter.py</span>
+    <span class="file-title">Filter by Message Type</span>
+    <span class="file-subtitle">Simplest filter — no Deps needed</span>
+  </div>
+  <div class="file-body">
+
+    <div class="what-it-does">
+      <h4>🎯 What this file does</h4>
+      <p>It shows 3 different filter strategies: (1) keep only user messages, (2) keep only AI replies, (3) keep only AI replies from history BUT always include the latest user message. Strategy 3 is the one actually plugged into the agent.</p>
+    </div>
+
+    <div class="pill-row">
+      <span class="pill pill-blue">ModelRequest = user messages</span>
+      <span class="pill pill-red">ModelResponse = AI messages</span>
+      <span class="pill pill-yellow">isinstance() = check the type</span>
+      <span class="pill pill-green">No RunContext needed</span>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">a_req_res_only_filter.py — fully annotated</div>
+<pre>
+<span class="cm"># ── IMPORTS ─────────────────────────────────────────────────────────────────</span>
+<span class="kw">from</span> pydantic_ai <span class="kw">import</span> <span class="cl">Agent</span>, <span class="cl">ModelMessage</span>, <span class="cl">ModelMessagesTypeAdapter</span>,
+                          <span class="cl">ModelRequest</span>, <span class="cl">ModelResponse</span>
+<span class="cm"># ModelRequest  → a message that came FROM the user (your question)</span>
+<span class="cm"># ModelResponse → a message that came FROM the AI (its answer)</span>
+<span class="cm"># ModelMessage  → parent type — can be either of the above</span>
+
+<span class="cm"># ── FILTER 1: Keep ONLY user messages ────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">request_only_filter</span>(<span class="param">messages</span>: list[<span class="cl">ModelMessage</span>]) -> list[<span class="cl">ModelMessage</span>]:
+    <span class="cm"># For each message in history, keep it ONLY if it's a user message (ModelRequest)</span>
+    <span class="cm"># Result: AI never sees its own previous answers — only what users said</span>
+    <span class="kw">return</span> [msg <span class="kw">for</span> msg <span class="kw">in</span> messages <span class="kw">if</span> <span class="fn">isinstance</span>(msg, <span class="cl">ModelRequest</span>)]
+    <span class="ann">⚠️ Rarely useful alone — AI loses all memory of what it said</span>
+
+<span class="cm"># ── FILTER 2: Keep ONLY AI responses — but BROKEN ────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">response_only_filter1</span>(<span class="param">messages</span>: list[<span class="cl">ModelMessage</span>]) -> list[<span class="cl">ModelMessage</span>]:
+    <span class="cm"># Keep only AI messages — BUT this removes the current user question too!</span>
+    <span class="cm"># The AI won't know what the user just asked ← BAD pattern</span>
+    <span class="kw">return</span> [msg <span class="kw">for</span> msg <span class="kw">in</span> messages <span class="kw">if</span> <span class="fn">isinstance</span>(msg, <span class="cl">ModelResponse</span>)]
+    <span class="ann">❌ Bug: loses the latest user question!</span>
+
+<span class="cm"># ── FILTER 3: Keep AI responses + always include latest user message ──────────</span>
+<span class="kw">def</span> <span class="fn">response_only_filter2</span>(<span class="param">messages</span>: list[<span class="cl">ModelMessage</span>]) -> list[<span class="cl">ModelMessage</span>]:
+    <span class="cm"># messages[-1] is always the CURRENT user message (most recent)</span>
+    <span class="cm"># messages[:-1] is all the OLDER history (everything except latest)</span>
+    
+    <span class="cm"># Step 1: From old history, pick only AI responses</span>
+    temp = [msg <span class="kw">for</span> msg <span class="kw">in</span> messages[:<span class="num">-1</span>] <span class="kw">if</span> <span class="fn">isinstance</span>(msg, <span class="cl">ModelResponse</span>)]
+    
+    <span class="cm"># Step 2: Always add back the latest user message at the end</span>
+    temp.append(messages[<span class="num">-1</span>])
+    
+    <span class="cm"># Result: AI sees its past answers + the current question (ignores old user msgs)</span>
+    <span class="kw">return</span> temp
+    <span class="ann">✅ The one actually used — smart &amp; correct!</span>
+
+<span class="cm"># ── AGENT SETUP ──────────────────────────────────────────────────────────────</span>
+agent = <span class="cl">Agent</span>(
+    <span class="st">'ollama:llama3-groq-tool-use:8b'</span>,          <span class="cm"># Which AI model to use (local LLaMA)</span>
+    instructions=<span class="st">"You are helpful assistant."</span>,   <span class="cm"># System prompt for the AI</span>
+    history_processors=[<span class="fn">response_only_filter2</span>]   <span class="cm"># Plug in our filter here!</span>
+)                                                  <span class="ann">📌 This is where magic happens</span>
+
+<span class="cm"># ── LOAD HISTORY FROM FILE ────────────────────────────────────────────────────</span>
+history = <span class="cl">ModelMessagesTypeAdapter</span>.validate_python(history)
+<span class="cm"># history.json stores past conversations saved from a previous run</span>
+<span class="cm"># validate_python() converts raw JSON dicts → proper ModelMessage objects</span>
+
+<span class="cm"># ── RUN THE AGENT ─────────────────────────────────────────────────────────────</span>
+result = agent.run_sync(
+    <span class="st">"Tell me a different motto compared to past."</span>, <span class="cm"># New user question</span>
+    message_history=history                         <span class="cm"># Pass the loaded history</span>
+)
+<span class="cm"># Before calling the AI, response_only_filter2() runs on 'history'</span>
+<span class="cm"># → trims it → filtered version sent to AI model</span>
+
+<span class="fn">print</span>(result.output)   <span class="cm"># What the AI said</span>
+<span class="fn">print</span>(result.usage())  <span class="cm"># How many tokens were used</span>
+</pre>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <h4>Key Insight: messages[-1] is always the current user message</h4>
+        <p>PydanticAI always appends the new user message at the end of the list before passing it to the history processor. So <code>messages[-1]</code> is ALWAYS the new question. <code>messages[:-1]</code> is all past history.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     FILE B
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">04</span>
+  <div class="section-line"></div>
+  <h2>📁 File B — Most Recent N Messages Filter</h2>
+</div>
+
+<div class="file-block">
+  <div class="file-header">
+    <span class="file-badge badge-b">b_most_recent_only_filter.py</span>
+    <span class="file-title">Sliding Window Filter</span>
+    <span class="file-subtitle">Uses Deps (RunContext) to pass config</span>
+  </div>
+  <div class="file-body">
+
+    <div class="what-it-does">
+      <h4>🎯 What this file does</h4>
+      <p>Keeps only the <em>most recent N messages</em> from history. N is passed in at runtime via a <code>Deps</code> dataclass. Great for keeping recent context without token bloat.</p>
+    </div>
+
+    <div class="pill-row">
+      <span class="pill pill-blue">RunContext carries runtime config</span>
+      <span class="pill pill-purple">@dataclass for structured Deps</span>
+      <span class="pill pill-yellow">messages[-N:] = last N items</span>
+      <span class="pill pill-green">Sliding window pattern</span>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">b_most_recent_only_filter.py — fully annotated</div>
+<pre>
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass        <span class="cm"># For creating simple data containers</span>
+<span class="kw">from</span> pydantic_ai <span class="kw">import</span> <span class="cl">Agent</span>, <span class="cl">ModelMessage</span>, <span class="cl">RunContext</span>
+
+<span class="cm"># ── THE FILTER ────────────────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">most_recent_only_filter</span>(
+    <span class="param">ctx</span>: <span class="cl">RunContext</span>[<span class="cl">Deps</span>],     <span class="cm"># RunContext lets us read settings (Deps)</span>
+    <span class="param">messages</span>: list[<span class="cl">ModelMessage</span>]
+) -> list[<span class="cl">ModelMessage</span>]:
+    
+    <span class="cm"># ctx.deps is our Deps object containing num_messages_to_keep</span>
+    n = ctx.deps.num_messages_to_keep
+    
+    <span class="cm"># Python slice trick: list[-n:] gives you the LAST n items</span>
+    <span class="cm"># e.g. [a, b, c, d, e][-3:]  →  [c, d, e]</span>
+    <span class="kw">return</span> messages[<span class="num">-</span>n:]
+    <span class="ann">🪟 Sliding window — only recent context</span>
+
+<span class="cm"># ── AGENT ─────────────────────────────────────────────────────────────────────</span>
+agent = <span class="cl">Agent</span>(
+    <span class="st">'ollama:llama3-groq-tool-use:8b'</span>,
+    instructions=<span class="st">"You are helpful assistant."</span>,
+    history_processors=[<span class="fn">most_recent_only_filter</span>]
+    <span class="cm"># Note: this processor takes RunContext — PydanticAI detects this automatically</span>
+)
+
+<span class="cm"># ── DEPS DATACLASS ────────────────────────────────────────────────────────────</span>
+<span class="nb">@dataclass</span>
+<span class="kw">class</span> <span class="cl">Deps</span>:
+    num_messages_to_keep: int   <span class="cm"># How many recent messages to keep</span>
+
+<span class="cm"># Create a Deps object — we want to keep the last 3 messages</span>
+deps = <span class="cl">Deps</span>(num_messages_to_keep=<span class="num">3</span>)
+<span class="ann">3 = only last 3 messages sent to AI</span>
+
+<span class="cm"># ── RUN ───────────────────────────────────────────────────────────────────────</span>
+result = agent.run_sync(
+    <span class="st">"Tell me a different motto compared to past."</span>,
+    message_history=history,
+    deps=deps           <span class="cm"># Pass our settings to the processor via RunContext</span>
+)
+</pre>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-icon">🎒</div>
+      <div class="callout-body">
+        <h4>RunContext[Deps] — The Settings Backpack</h4>
+        <p>Think of <code>RunContext[Deps]</code> as a backpack that carries your settings into the function. You pack the backpack with <code>Deps(num_messages_to_keep=3)</code> when calling <code>run_sync(deps=deps)</code>, and the function unpacks it with <code>ctx.deps.num_messages_to_keep</code>.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     FILE C
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">05</span>
+  <div class="section-line"></div>
+  <h2>📁 File C — Token Count Based Filter</h2>
+</div>
+
+<div class="file-block">
+  <div class="file-header">
+    <span class="file-badge badge-c">c_token_count_based_filter.py</span>
+    <span class="file-title">Smart Token-Budget Trimmer</span>
+    <span class="file-subtitle">Only trims when token limit is hit</span>
+  </div>
+  <div class="file-body">
+
+    <div class="what-it-does">
+      <h4>🎯 What this file does</h4>
+      <p>Tracks the running token count across calls. Only trims history when the total tokens exceed a limit. This simulates a real production use-case where you budget API costs carefully.</p>
+    </div>
+
+    <div class="pill-row">
+      <span class="pill pill-red">Stateful token tracking</span>
+      <span class="pill pill-blue">Conditional trimming</span>
+      <span class="pill pill-yellow">result.usage() = token count</span>
+      <span class="pill pill-green">Multi-turn simulation</span>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">c_token_count_based_filter.py — fully annotated</div>
+<pre>
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> pydantic_ai <span class="kw">import</span> <span class="cl">Agent</span>, <span class="cl">ModelMessage</span>, <span class="cl">RunContext</span>
+
+<span class="cm"># ── THE FILTER ────────────────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">token_usage_based_filter</span>(
+    <span class="param">ctx</span>: <span class="cl">RunContext</span>[<span class="cl">Deps</span>],
+    <span class="param">messages</span>: list[<span class="cl">ModelMessage</span>]
+) -> list[<span class="cl">ModelMessage</span>]:
+
+    current_tokens   = ctx.deps.total_tokens       <span class="cm"># Tokens used so far</span>
+    token_limit      = ctx.deps.token_limit         <span class="cm"># Our budget ceiling</span>
+    n                = ctx.deps.num_messages_to_keep
+
+    <span class="cm"># Only trim if we've EXCEEDED the token budget</span>
+    <span class="kw">if</span> current_tokens > token_limit:
+        <span class="kw">return</span> messages[<span class="num">-</span>n:]    <span class="cm"># Keep only the last N messages</span>
+        <span class="ann">✂️ Trim triggered!</span>
+
+    <span class="kw">return</span> messages              <span class="cm"># Under budget? Send everything as-is</span>
+    <span class="ann">✅ No trimming needed yet</span>
+
+<span class="cm"># ── DEPS: carries 3 pieces of info ────────────────────────────────────────────</span>
+<span class="nb">@dataclass</span>
+<span class="kw">class</span> <span class="cl">Deps</span>:
+    total_tokens: int           <span class="cm"># How many tokens we've spent so far</span>
+    token_limit: int            <span class="cm"># Our max budget (e.g. 100 tokens)</span>
+    num_messages_to_keep: int   <span class="cm"># How many to keep if we need to trim</span>
+
+<span class="cm"># ── FIRST CALL: starting fresh, 0 tokens used ────────────────────────────────</span>
+ntokens = <span class="num">0</span>
+deps = <span class="cl">Deps</span>(token_limit=<span class="num">100</span>, total_tokens=ntokens, num_messages_to_keep=<span class="num">3</span>)
+result = agent.run_sync(<span class="st">"Tell me a different motto compared to past."</span>,
+                        message_history=history, deps=deps)
+<span class="fn">print</span>(result.output)
+<span class="fn">print</span>(result.usage())   <span class="cm"># Shows: input_tokens, output_tokens, total_tokens</span>
+
+<span class="cm"># ── UPDATE TOKEN COUNT ────────────────────────────────────────────────────────</span>
+ntokens += result.usage().input_tokens + result.usage().output_tokens
+<span class="cm"># Add up all tokens from this call → total spent so far</span>
+<span class="ann">📊 Running total now updated</span>
+
+<span class="cm"># ── SECOND CALL: token count now likely OVER 100 ──────────────────────────────</span>
+deps = <span class="cl">Deps</span>(token_limit=<span class="num">100</span>, total_tokens=ntokens, num_messages_to_keep=<span class="num">3</span>)
+result = agent.run_sync(<span class="st">"Tell me a different motto compared to past."</span>,
+                        message_history=history, deps=deps)
+<span class="cm"># This time, token_usage_based_filter sees total_tokens > 100</span>
+<span class="cm"># → It will trim history to the last 3 messages before calling AI</span>
+<span class="fn">print</span>(result.output)
+<span class="fn">print</span>(result.usage())
+</pre>
+    </div>
+
+    <div class="callout warn">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <h4>Important: history is not updated between calls</h4>
+        <p>Notice that <code>history</code> is passed as-is to both <code>run_sync</code> calls — it's the same loaded file. In a real app, you'd append new messages to history after each call. This demo just shows the token-triggered trimming logic.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     FILE D
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">06</span>
+  <div class="section-line"></div>
+  <h2>📁 File D — Token Count Based <em>Summarizer</em></h2>
+</div>
+
+<div class="file-block">
+  <div class="file-header">
+    <span class="file-badge badge-d">d_token_count_based_summarizer.py</span>
+    <span class="file-title">Compress, Don't Forget!</span>
+    <span class="file-subtitle">Uses a second agent to summarize old messages</span>
+  </div>
+  <div class="file-body">
+
+    <div class="what-it-does">
+      <h4>🎯 What this file does</h4>
+      <p>Instead of simply deleting old messages when the token limit is hit, this uses a <em>second summarization agent</em> to compress the old messages into a short summary — then uses that summary + the current message as history. Best of both worlds: small context AND no lost information!</p>
+    </div>
+
+    <div class="pill-row">
+      <span class="pill pill-purple">Agent-within-an-Agent pattern</span>
+      <span class="pill pill-blue">Summarization vs deletion</span>
+      <span class="pill pill-red">new_messages() extraction</span>
+      <span class="pill pill-green">Most advanced strategy</span>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">d_token_count_based_summarizer.py — fully annotated</div>
+<pre>
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> pydantic_ai <span class="kw">import</span> <span class="cl">Agent</span>, <span class="cl">ModelMessage</span>, <span class="cl">RunContext</span>
+
+<span class="cm"># ── A SEPARATE AGENT JUST FOR SUMMARIZING ─────────────────────────────────────</span>
+summarize_agent = <span class="cl">Agent</span>(
+    <span class="st">'ollama:llama3-groq-tool-use:8b'</span>,
+    instructions=<span class="st">"Summarize this conversation, omitting small talk and unrelated topics."</span>
+)
+<span class="cm"># This is NOT the main agent — it's a helper agent whose only job is</span>
+<span class="cm"># to take a list of messages and return a condensed summary</span>
+<span class="ann">🤖 Agent #2: the summarizer assistant</span>
+
+<span class="cm"># ── THE PROCESSOR ─────────────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">token_based_summarizer</span>(
+    <span class="param">ctx</span>: <span class="cl">RunContext</span>[<span class="cl">Deps</span>],
+    <span class="param">messages</span>: list[<span class="cl">ModelMessage</span>]
+) -> list[<span class="cl">ModelMessage</span>]:
+
+    <span class="fn">print</span>(ctx.deps.total_tokens)   <span class="cm"># Debug: see how many tokens we've used</span>
+
+    <span class="kw">if</span> ctx.deps.total_tokens > ctx.deps.token_limit:
+        <span class="cm"># We're over budget!</span>
+
+        <span class="cm"># Take all messages EXCEPT the latest one (that's the current user question)</span>
+        oldest_messages = messages[:<span class="num">-1</span>]
+        <span class="ann">📜 All old context to be compressed</span>
+
+        <span class="cm"># Run the SUMMARIZER AGENT on the old messages</span>
+        summary = summarize_agent.run_sync(message_history=oldest_messages)
+        <span class="cm"># This calls the AI again — but with a "summarize this" system prompt</span>
+        <span class="cm"># The result is a short paragraph summarizing the whole past conversation</span>
+        <span class="ann">🔁 AI call inside AI call!</span>
+
+        <span class="cm"># summary.new_messages() extracts just the summary output as a message list</span>
+        <span class="cm"># Then append the current user question (messages[-1])</span>
+        <span class="kw">return</span> summary.new_messages() + messages[<span class="num">-1</span>:]
+        <span class="cm"># Result: [short_summary_message, current_user_question]</span>
+        <span class="ann">✅ Compact but info preserved</span>
+
+    <span class="kw">return</span> messages   <span class="cm"># Under budget? Send full history unchanged</span>
+
+<span class="cm"># ── MAIN AGENT (uses the summarizer processor) ────────────────────────────────</span>
+agent = <span class="cl">Agent</span>(
+    <span class="st">'ollama:llama3-groq-tool-use:8b'</span>,
+    instructions=<span class="st">"You are helpful assistant."</span>,
+    history_processors=[<span class="fn">token_based_summarizer</span>]
+)
+
+<span class="cm"># ── DEPS ──────────────────────────────────────────────────────────────────────</span>
+<span class="nb">@dataclass</span>
+<span class="kw">class</span> <span class="cl">Deps</span>:
+    total_tokens: int    <span class="cm"># Running token total</span>
+    token_limit: int     <span class="cm"># When to trigger summarization (e.g. 100)</span>
+
+<span class="cm"># ── CALL 1: Under limit — full history sent ───────────────────────────────────</span>
+ntokens = <span class="num">0</span>
+deps = <span class="cl">Deps</span>(token_limit=<span class="num">100</span>, total_tokens=ntokens)
+result = agent.run_sync(<span class="st">"Tell me a different motto compared to past."</span>,
+                        message_history=history, deps=deps)
+<span class="fn">print</span>(result.output)
+<span class="fn">print</span>(result.usage())
+
+<span class="cm"># ── UPDATE TOKEN COUNT ────────────────────────────────────────────────────────</span>
+ntokens += result.usage().input_tokens + result.usage().output_tokens
+
+<span class="cm"># ── CALL 2: Likely over limit — summarizer kicks in ──────────────────────────</span>
+deps = <span class="cl">Deps</span>(token_limit=<span class="num">100</span>, total_tokens=ntokens)
+result = agent.run_sync(<span class="st">"Tell me a different motto compared to past."</span>,
+                        message_history=history, deps=deps)
+<span class="cm"># Now: old history → summarized → summary + current question → sent to AI</span>
+</pre>
+    </div>
+
+    <div class="callout magic">
+      <div class="callout-icon">✨</div>
+      <div class="callout-body">
+        <h4>Agent-in-Agent Pattern</h4>
+        <p>This is an advanced agentic pattern: a <strong>meta-agent</strong> that spawns a sub-agent to do a specific task (summarizing) and uses its output as part of the main flow. This is how real production AI pipelines work — orchestrators that call specialists!</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     STRATEGY SUMMARY
+════════════════════════════════════ -->
+<div class="section-header">
+  <span class="section-num">07</span>
+  <div class="section-line"></div>
+  <h2>🏆 Which Strategy Should You Use?</h2>
+</div>
+
+<div class="concept-grid">
+  <div class="concept-card red">
+    <div class="concept-icon">✂️</div>
+    <h3>Request/Response Filter</h3>
+    <p>Good for <strong>debugging</strong> or when you only want to show the AI its own outputs. Rarely used in production on its own.</p>
+  </div>
+  <div class="concept-card green">
+    <div class="concept-icon">🪟</div>
+    <h3>Most Recent N Filter</h3>
+    <p>Good for <strong>short-term context</strong> tasks — like a support chatbot that only needs the last few exchanges. Simple and fast.</p>
+  </div>
+  <div class="concept-card yellow">
+    <div class="concept-icon">💰</div>
+    <h3>Token-Based Trim</h3>
+    <p>Good for <strong>cost-controlled apps</strong>. Only trims when you actually need to — so context is preserved until the budget is hit.</p>
+  </div>
+  <div class="concept-card purple">
+    <div class="concept-icon">🧠</div>
+    <h3>Token-Based Summarize</h3>
+    <p><strong>Best for production</strong>. Compresses old context instead of deleting it. The AI retains knowledge without blowing up the token budget.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     LOGFIRE NOTE
+════════════════════════════════════ -->
+<div class="callout info" style="margin-top:40px;">
+  <div class="callout-icon">🔭</div>
+  <div class="callout-body">
+    <h4>What is Logfire?</h4>
+    <p>Every file imports <code>logfire</code> and calls <code>logfire.configure()</code> + <code>logfire.instrument_pydantic_ai()</code>. Logfire is an observability tool — it records every agent call, token usage, and history trace so you can see exactly what's happening in your AI app. Think of it as <code>console.log()</code> on steroids for AI agents.</p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>🤖 Explained by your GenAI Mentor · PydanticAI History Processors · All four files decoded</p>
+  <p style="margin-top:8px;">Concepts: Agent · ModelMessage · RunContext · Deps · history_processors · token counting · summarization</p>
+</div>
+
+</div><!-- /container -->
+</body>
+</html>

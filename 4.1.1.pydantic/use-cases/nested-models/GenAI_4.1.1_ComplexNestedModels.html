@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pydantic Nested Models — Explained for Everyone</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #07080f;
+    --surface:  #0d1020;
+    --surface2: #131826;
+    --border:   #1c2540;
+    --border2:  #263558;
+    --text:     #e0eaff;
+    --muted:    #5060a0;
+
+    --nest:     #f472b6;   /* pink    — nesting */
+    --opt:      #facc15;   /* yellow  — Optional */
+    --list:     #34d399;   /* green   — List */
+    --email:    #60a5fa;   /* blue    — EmailStr */
+    --pos:      #fb923c;   /* orange  — PositiveInt */
+    --url:      #a78bfa;   /* violet  — HttpUrl */
+    --model:    #e879f9;   /* magenta — BaseModel */
+    --fun:      #f97316;   /* orange  — fun/emoji */
+
+    --font-head: 'Nunito', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-head); line-height:1.7; overflow-x:hidden; }
+
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  nav {
+    position:sticky; top:0; z-index:100;
+    background:rgba(7,8,15,0.94); backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--border);
+    padding:10px 28px; display:flex; gap:22px; align-items:center; overflow-x:auto;
+  }
+  .nav-logo { font-family:var(--font-mono); font-size:0.78rem; color:var(--nest); margin-right:8px; white-space:nowrap; }
+  nav a { font-family:var(--font-mono); font-size:0.67rem; color:var(--muted); text-decoration:none; letter-spacing:1px; white-space:nowrap; transition:color .2s; }
+  nav a:hover { color:var(--nest); }
+
+  /* ── HERO ── */
+  .hero {
+    padding:64px 36px 56px;
+    background:
+      radial-gradient(ellipse at 78% 0%, rgba(244,114,182,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 90%, rgba(52,211,153,0.09) 0%, transparent 50%),
+      var(--bg);
+    border-bottom:1px solid var(--border); position:relative; overflow:hidden;
+  }
+  .hero-confetti { position:absolute; inset:0; opacity:0.03; background-image:radial-gradient(circle, #fff 1px, transparent 1px); background-size:28px 28px; }
+  .hero-eyebrow { font-size:0.85rem; color:var(--opt); font-weight:800; margin-bottom:10px; }
+  .hero h1 { font-size:clamp(2rem,5vw,3.4rem); font-weight:900; line-height:1.08; background:linear-gradient(120deg, var(--nest) 0%, #fff 45%, var(--list) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:16px; }
+  .hero p { font-size:1.05rem; color:var(--muted); max-width:660px; }
+  .hero-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+  .badge { font-family:var(--font-mono); font-size:0.68rem; padding:4px 13px; border-radius:20px; border:1px solid; letter-spacing:1px; }
+
+  /* ── LAYOUT ── */
+  .container { max-width:1060px; margin:0 auto; padding:0 32px; }
+  .section { padding:58px 0; border-bottom:1px solid var(--border); }
+  .section-tag { font-size:0.78rem; font-weight:800; color:var(--nest); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+  h2 { font-size:1.9rem; font-weight:900; margin-bottom:6px; }
+  h3 { font-size:1rem; font-weight:800; margin-bottom:9px; }
+  .subtitle { color:var(--muted); margin-bottom:30px; font-size:0.93rem; }
+
+  /* ── EMOJI CARDS ── */
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:18px; margin-top:24px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; position:relative; overflow:hidden; transition:transform .18s, border-color .18s; }
+  .card:hover { transform:translateY(-3px); }
+  .card-stripe { position:absolute; top:0; left:0; right:0; height:3px; border-radius:16px 16px 0 0; }
+  .card-emoji { font-size:2rem; margin-bottom:8px; }
+  .card h3 { font-size:0.96rem; margin-bottom:6px; }
+  .card p { color:var(--muted); font-size:0.86rem; }
+  .pill { display:inline-block; font-family:var(--font-mono); font-size:0.63rem; padding:2px 8px; border-radius:4px; margin-top:9px; }
+
+  /* ── CALLOUT ── */
+  .callout { border-left:4px solid var(--nest); background:rgba(244,114,182,0.07); border-radius:0 12px 12px 0; padding:18px 22px; margin:22px 0; }
+  .callout.yellow { border-color:var(--opt);   background:rgba(250,204,21,0.07); }
+  .callout.green  { border-color:var(--list);  background:rgba(52,211,153,0.07); }
+  .callout.blue   { border-color:var(--email); background:rgba(96,165,250,0.07); }
+  .callout.violet { border-color:var(--url);   background:rgba(167,139,250,0.07); }
+  .callout.orange { border-color:var(--pos);   background:rgba(251,146,60,0.07); }
+  .callout-title { font-weight:900; font-size:0.75rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .callout        .callout-title { color:var(--nest); }
+  .callout.yellow .callout-title { color:var(--opt); }
+  .callout.green  .callout-title { color:var(--list); }
+  .callout.blue   .callout-title { color:var(--email); }
+  .callout.violet .callout-title { color:var(--url); }
+  .callout.orange .callout-title { color:var(--pos); }
+  .callout p { font-size:0.9rem; }
+  code { font-family:var(--font-mono); background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; font-size:0.82em; color:var(--list); }
+
+  /* ── LEGO NESTING ── */
+  .lego-wrap { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:30px; margin-top:24px; }
+  .lego-outer { border:3px solid var(--model); border-radius:14px; padding:20px 20px 14px; background:rgba(232,121,249,0.05); }
+  .lego-label { font-family:var(--font-mono); font-size:0.72rem; font-weight:500; margin-bottom:12px; letter-spacing:1px; }
+  .lego-field { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; margin-bottom:6px; font-family:var(--font-mono); font-size:0.78rem; }
+  .lf-str  { background:rgba(52,211,153,0.1);  border:1px solid rgba(52,211,153,0.3);  }
+  .lf-list { background:rgba(52,211,153,0.1);  border:1px solid rgba(52,211,153,0.3);  }
+  .lf-opt  { background:rgba(250,204,21,0.1);  border:1px dashed rgba(250,204,21,0.4); }
+  .lf-inner{ background:rgba(244,114,182,0.1); border:1px solid rgba(244,114,182,0.4); }
+  .lego-inner { border:2px solid var(--nest); border-radius:10px; padding:14px 16px 10px; margin:8px 0; background:rgba(244,114,182,0.04); }
+  .lf-name  { color:var(--text); min-width:130px; }
+  .lf-type  { flex:1; }
+  .lf-emoji { font-size:0.9rem; }
+  .lego-arrow { text-align:center; font-size:1rem; color:var(--muted); margin:6px 0; }
+
+  /* ── OPTIONAL EXPLAINER ── */
+  .opt-split { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:20px; }
+  @media(max-width:680px){ .opt-split { grid-template-columns:1fr; } }
+  .opt-box { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .opt-box.yes { border-color:rgba(52,211,153,0.4); }
+  .opt-box.no  { border-color:rgba(244,63,94,0.4); }
+  .opt-head { font-size:0.95rem; font-weight:800; margin-bottom:10px; }
+  .opt-code { font-family:var(--font-mono); font-size:0.76rem; background:var(--surface2); border-radius:8px; padding:12px; margin:10px 0; line-height:1.7; }
+  .opt-result { font-size:0.85rem; color:var(--muted); }
+
+  /* ── SPECIAL TYPES ── */
+  .type-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:22px; }
+  .tcard { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; transition:transform .18s; }
+  .tcard:hover { transform:translateY(-2px); }
+  .tc-type { font-family:var(--font-mono); font-size:0.88rem; font-weight:500; margin-bottom:6px; }
+  .tc-plain { font-size:0.82rem; font-weight:700; margin-bottom:8px; }
+  .tc-what { font-size:0.84rem; color:var(--muted); margin-bottom:8px; }
+  .tc-ex-bad { font-family:var(--font-mono); font-size:0.72rem; color:rgba(244,63,94,0.9); }
+  .tc-ex-good { font-family:var(--font-mono); font-size:0.72rem; color:var(--list); }
+
+  /* ── DICT TRICK ── */
+  .dict-trick { background:var(--surface); border:1px solid rgba(96,165,250,0.3); border-radius:14px; padding:28px; margin-top:24px; }
+  .dt-row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:16px; }
+  .dt-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; font-family:var(--font-mono); font-size:0.74rem; line-height:1.7; }
+  .dt-box.dict-in { border-color:rgba(96,165,250,0.4); }
+  .dt-box.model-out { border-color:rgba(244,114,182,0.4); }
+  .dt-arrow { font-size:1.4rem; color:var(--muted); }
+  .dt-label { font-family:var(--font-mono); font-size:0.6rem; color:var(--muted); letter-spacing:1px; text-align:center; margin-top:4px; }
+
+  /* ── MODEL DUMP VIZ ── */
+  .dump-viz { background:#020406; border:1px solid var(--border); border-radius:12px; padding:24px; margin-top:20px; font-family:var(--font-mono); font-size:0.76rem; line-height:1.85; overflow-x:auto; }
+  .d-key { color:var(--opt); }
+  .d-str { color:#f1fa8c; }
+  .d-num { color:var(--list); }
+  .d-bool{ color:var(--email); }
+  .d-null{ color:var(--muted); }
+  .d-brace{ color:var(--text); }
+  .d-ann  { color:var(--muted); font-style:italic; }
+  .d-nest { color:var(--nest); }
+
+  /* ── CODE ── */
+  .code-file-header { display:flex; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; padding:11px 18px; }
+  .dots { display:flex; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g{background:#28c840;}
+  .code-file-name { font-family:var(--font-mono); font-size:0.73rem; color:var(--muted); }
+  .file-badge { margin-left:auto; font-family:var(--font-mono); font-size:0.63rem; padding:3px 10px; border-radius:20px; border:1px solid; }
+  pre { background:#020406; border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:24px; overflow-x:auto; font-family:var(--font-mono); font-size:0.79rem; line-height:1.92; margin-bottom:26px; }
+
+  .kw  { color:#ff79c6; }
+  .fn  { color:#50fa7b; }
+  .str { color:#f1fa8c; }
+  .cm  { color:#2a3e60; font-style:italic; }
+  .cls { color:#8be9fd; }
+  .vr  { color:#f8f8f2; }
+  .at  { color:#ffb86c; }
+  .nm  { color:#bd93f9; }
+  .pc  { color:var(--model); }
+  .nc  { color:var(--nest); }
+  .lc  { color:var(--list); }
+  .oc  { color:var(--opt); }
+  .ec  { color:var(--email); }
+  .uc  { color:var(--url); }
+  .psc { color:var(--pos); }
+
+  /* ── FUN QUIZ BOX ── */
+  .quiz-box { background:var(--surface); border:2px dashed var(--opt); border-radius:14px; padding:24px; margin-top:24px; }
+  .quiz-q { font-size:1rem; font-weight:800; margin-bottom:14px; }
+  .quiz-opts { display:flex; flex-direction:column; gap:8px; }
+  .quiz-opt { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:0.88rem; cursor:default; transition:border-color .2s; }
+  .quiz-opt.correct { border-color:var(--list); background:rgba(52,211,153,0.08); }
+  .quiz-opt.wrong   { border-color:rgba(244,63,94,0.5); opacity:0.5; }
+  .quiz-ans { font-size:0.8rem; color:var(--muted); margin-top:12px; }
+
+  .footer { padding:40px; text-align:center; color:var(--muted); font-family:var(--font-mono); font-size:0.72rem; border-top:1px solid var(--border); }
+  @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .section { animation:fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">⚡ GenAI Mentor</span>
+  <a href="#concepts">Big Ideas</a>
+  <a href="#nesting">Lego Nesting</a>
+  <a href="#optional">Optional</a>
+  <a href="#dict-trick">Dict Trick</a>
+  <a href="#special">Smart Types</a>
+  <a href="#code">Code Walkthrough</a>
+  <a href="#bigpicture">Why It Matters</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-confetti"></div>
+  <div class="container">
+    <div class="hero-eyebrow">📦 Complex Pydantic Structures</div>
+    <h1>Models Inside Models —<br/>Like Lego Bricks!</h1>
+    <p>What if you need to store a list of foods inside a restaurant? Or an address inside an employee? This week's files show how Pydantic handles <strong>nested data</strong> — real-world shapes like <em>a restaurant that has employees who have emails</em>. And some very clever built-in validators!</p>
+    <div class="hero-badges">
+      <span class="badge" style="color:var(--nest);border-color:var(--nest)">Nested Models</span>
+      <span class="badge" style="color:var(--opt);border-color:var(--opt)">Optional fields</span>
+      <span class="badge" style="color:var(--list);border-color:var(--list)">List[Food]</span>
+      <span class="badge" style="color:var(--email);border-color:var(--email)">EmailStr</span>
+      <span class="badge" style="color:var(--pos);border-color:var(--pos)">PositiveInt</span>
+      <span class="badge" style="color:var(--url);border-color:var(--url)">HttpUrl</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 1 — BIG IDEAS ════════ -->
+<div class="section" id="concepts">
+  <div class="container">
+    <div class="section-tag">Section 01 — 🧠 Big Ideas</div>
+    <h2>What Are We Learning?</h2>
+    <p class="subtitle">Six new ideas — explained simply. No jargon. Promise.</p>
+
+    <div class="cards-grid">
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--nest)"></div>
+        <div class="card-emoji">🪆</div>
+        <h3>Nested Models</h3>
+        <p>A Pydantic model can have a <strong>field whose type is another Pydantic model</strong>. Like a box inside a box. A <code>Restaurant</code> contains <code>Food</code> objects. Each <code>Food</code> is itself validated. They stack as deep as you want.</p>
+        <span class="pill" style="background:rgba(244,114,182,0.12);color:var(--nest)">model inside model ✓</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--list)"></div>
+        <div class="card-emoji">📋</div>
+        <h3>List[SomeModel]</h3>
+        <p><code>List[Food]</code> means: a list where <em>every item must be a valid Food</em>. You can have zero items, one, or a hundred. Pydantic validates <strong>each item individually</strong>. One bad item → error for that item, not a silent skip.</p>
+        <span class="pill" style="background:rgba(52,211,153,0.12);color:var(--list)">list of validated items</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--opt)"></div>
+        <div class="card-emoji">🤷</div>
+        <h3>Optional[X] = None</h3>
+        <p>Means: <em>this field is not required</em>. If you don't provide it, it defaults to <code>None</code>. Like a form field that says "Website (optional)". Works the same as <code>Union[X, None]</code> — can be the type OR nothing.</p>
+        <span class="pill" style="background:rgba(250,204,21,0.12);color:var(--opt)">can be missing — that's OK</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--email)"></div>
+        <div class="card-emoji">📧</div>
+        <h3>EmailStr — Smart Validator</h3>
+        <p>A special type from Pydantic that checks: does this string <em>look like</em> a real email? <code>"john@"</code> → error. <code>"notanemail"</code> → error. <code>"john@example.com"</code> → ✅. Built-in, no regex needed!</p>
+        <span class="pill" style="background:rgba(96,165,250,0.12);color:var(--email)">must be valid email format</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--pos)"></div>
+        <div class="card-emoji">➕</div>
+        <h3>PositiveInt</h3>
+        <p>An integer that <strong>must be greater than zero</strong>. <code>0</code> → error. <code>-5</code> → error. <code>50</code> → ✅. Makes sense for <code>number_of_seats</code> — a restaurant with 0 or negative seats makes no sense!</p>
+        <span class="pill" style="background:rgba(251,146,60,0.12);color:var(--pos)">int &gt; 0 enforced</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--url)"></div>
+        <div class="card-emoji">🌐</div>
+        <h3>HttpUrl</h3>
+        <p>A type that validates a URL — checks it starts with <code>http://</code> or <code>https://</code>, has a real domain, etc. <code>"tastybites"</code> → error. <code>"http://tastybites.com"</code> → ✅. No need to write your own URL checker!</p>
+        <span class="pill" style="background:rgba(167,139,250,0.12);color:var(--url)">valid URL enforced</span>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:28px">
+      <div class="callout-title">🍕 Real World Analogy — A Restaurant App</div>
+      <p>
+        Imagine you're building an app like <strong>Zomato or Uber Eats</strong>. A restaurant isn't just a name — it has a location, a list of foods, employees, a website, an owner. Each food has a name, price, and ingredients. Each employee has a name and email.<br/><br/>
+        You need a data structure that mirrors real life. That's exactly what these two files build — and Pydantic validates every single piece automatically!
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 2 — LEGO NESTING ════════ -->
+<div class="section" id="nesting">
+  <div class="container">
+    <div class="section-tag">Section 02 — 🧱 Nested Models</div>
+    <h2>Models Inside Models — The Lego Idea</h2>
+    <p class="subtitle">Think of each model as a Lego brick. You can snap bricks together to build bigger structures.</p>
+
+    <div class="lego-wrap">
+      <div style="font-weight:800;font-size:0.88rem;margin-bottom:20px;color:var(--text)">📁 complex-structure1.py — 2-level nesting</div>
+
+      <!-- OUTER: Restaurant -->
+      <div class="lego-outer">
+        <div class="lego-label" style="color:var(--model)">🏪 Restaurant (outer model)</div>
+        <div class="lego-field lf-str">
+          <span class="lf-name">name</span>
+          <span class="lf-type" style="color:var(--list)">str</span>
+          <span class="lf-emoji">📝</span>
+          <span style="font-size:0.72rem;color:var(--muted)">e.g. "Tasty Bites"</span>
+        </div>
+        <div class="lego-field lf-str">
+          <span class="lf-name">location</span>
+          <span class="lf-type" style="color:var(--list)">str</span>
+          <span class="lf-emoji">📍</span>
+          <span style="font-size:0.72rem;color:var(--muted)">e.g. "123 Flavor Street"</span>
+        </div>
+        <div class="lego-field lf-inner">
+          <span class="lf-name">foods</span>
+          <span class="lf-type" style="color:var(--nest)">List[Food] ← list of another model!</span>
+          <span class="lf-emoji">🍕</span>
+        </div>
+
+        <div class="lego-arrow">↳ each item in foods is a...</div>
+
+        <!-- INNER: Food -->
+        <div class="lego-inner">
+          <div class="lego-label" style="color:var(--nest)">🍔 Food (inner model)</div>
+          <div class="lego-field lf-str">
+            <span class="lf-name">name</span>
+            <span class="lf-type" style="color:var(--list)">str</span>
+            <span class="lf-emoji">🏷️</span>
+            <span style="font-size:0.72rem;color:var(--muted)">e.g. "Cheese Pizza"</span>
+          </div>
+          <div class="lego-field lf-str">
+            <span class="lf-name">price</span>
+            <span class="lf-type" style="color:var(--list)">float</span>
+            <span class="lf-emoji">💰</span>
+            <span style="font-size:0.72rem;color:var(--muted)">e.g. 12.50</span>
+          </div>
+          <div class="lego-field lf-opt">
+            <span class="lf-name">ingredients</span>
+            <span class="lf-type" style="color:var(--opt)">Optional[List[str]] = None</span>
+            <span class="lf-emoji">🤷</span>
+            <span style="font-size:0.72rem;color:var(--muted)">can be left empty!</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;font-size:0.88rem;color:var(--muted)">
+        🔑 <strong style="color:var(--text)">The magic:</strong> when Pydantic sees <code>List[Food]</code>, it validates <em>each dict in the list</em> as a Food model. You pass raw dicts (<code>{"name": "Pizza", "price": 12.5}</code>) and Pydantic converts them to Food objects automatically!
+      </div>
+    </div>
+
+    <!-- FILE 2 NESTING -->
+    <div class="lego-wrap" style="margin-top:20px">
+      <div style="font-weight:800;font-size:0.88rem;margin-bottom:20px;color:var(--text)">📁 complex-structure2.py — 3-level nesting, more models</div>
+      <div class="lego-outer">
+        <div class="lego-label" style="color:var(--model)">🏪 Restaurant (main model)</div>
+        <div class="lego-field lf-str"><span class="lf-name">name</span><span class="lf-type" style="color:var(--list)">str</span></div>
+        <div class="lego-field lf-inner"><span class="lf-name">owner</span><span class="lf-type" style="color:var(--nest)">Owner ← nested model</span></div>
+        <div class="lego-field lf-inner"><span class="lf-name">address</span><span class="lf-type" style="color:var(--nest)">Address ← nested model</span></div>
+        <div class="lego-field lf-inner"><span class="lf-name">employees</span><span class="lf-type" style="color:var(--nest)">List[Employee] ← list of nested models</span></div>
+        <div class="lego-field lf-opt"><span class="lf-name">number_of_seats</span><span class="lf-type" style="color:var(--pos)">PositiveInt ← smart type: must be &gt; 0</span></div>
+        <div class="lego-field lf-str"><span class="lf-name">delivery</span><span class="lf-type" style="color:var(--list)">bool</span></div>
+        <div class="lego-field lf-opt"><span class="lf-name">website</span><span class="lf-type" style="color:var(--url)">HttpUrl ← smart type: must be valid URL</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:16px">
+        <div style="background:rgba(244,114,182,0.07);border:1px solid rgba(244,114,182,0.3);border-radius:10px;padding:14px;font-family:var(--font-mono);font-size:0.72rem">
+          <div style="color:var(--nest);margin-bottom:6px">Owner</div>
+          <div>name: str</div>
+          <div>email: <span style="color:var(--email)">EmailStr</span></div>
+        </div>
+        <div style="background:rgba(244,114,182,0.07);border:1px solid rgba(244,114,182,0.3);border-radius:10px;padding:14px;font-family:var(--font-mono);font-size:0.72rem">
+          <div style="color:var(--nest);margin-bottom:6px">Address</div>
+          <div>street: str</div>
+          <div>city: str</div>
+          <div>state: str</div>
+          <div>zip_code: str</div>
+        </div>
+        <div style="background:rgba(244,114,182,0.07);border:1px solid rgba(244,114,182,0.3);border-radius:10px;padding:14px;font-family:var(--font-mono);font-size:0.72rem">
+          <div style="color:var(--nest);margin-bottom:6px">Employee</div>
+          <div>name: str</div>
+          <div>position: str</div>
+          <div>email: <span style="color:var(--email)">EmailStr</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout green" style="margin-top:20px">
+      <div class="callout-title">🧱 Why Separate Models Instead of One Big One?</div>
+      <p>
+        You <em>could</em> put all fields flat in one giant Restaurant class. But separating into Food, Employee, Address etc. means:<br/>
+        <strong>1. Reuse</strong> — Address can be used in Employee, Customer, Order too.<br/>
+        <strong>2. Clarity</strong> — each model has one job.<br/>
+        <strong>3. Validation per level</strong> — if an Employee's email is wrong, Pydantic tells you exactly: "employees → index 1 → email → invalid".<br/>
+        This is exactly how real apps like Instagram, Uber, and Swiggy structure their data!
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 3 — OPTIONAL ════════ -->
+<div class="section" id="optional">
+  <div class="container">
+    <div class="section-tag">Section 03 — 🤷 Optional Fields</div>
+    <h2>Optional — "This Field Is Not Required"</h2>
+    <p class="subtitle">Some data is always there. Some might be missing. Optional handles the "might be missing" case.</p>
+
+    <div class="opt-split">
+      <div class="opt-box yes">
+        <div class="opt-head" style="color:var(--list)">✅ With ingredients (provided)</div>
+        <div class="opt-code">
+          Food(<br/>
+          &nbsp;&nbsp;<span style="color:var(--at)">name</span>=<span style="color:var(--str)">"Cheese Pizza"</span>,<br/>
+          &nbsp;&nbsp;<span style="color:var(--at)">price</span>=<span style="color:var(--nm)">12.50</span>,<br/>
+          &nbsp;&nbsp;<span style="color:var(--at)">ingredients</span>=[<span style="color:var(--str)">"Cheese"</span>, <span style="color:var(--str)">"Dough"</span>]<br/>
+          )
+        </div>
+        <div class="opt-result"><code>food.ingredients</code> → <code>['Cheese', 'Dough']</code><br/>Works perfectly ✅</div>
+      </div>
+      <div class="opt-box no">
+        <div class="opt-head" style="color:var(--opt)">🤷 Without ingredients (skipped)</div>
+        <div class="opt-code">
+          Food(<br/>
+          &nbsp;&nbsp;<span style="color:var(--at)">name</span>=<span style="color:var(--str)">"Veggie Burger"</span>,<br/>
+          &nbsp;&nbsp;<span style="color:var(--at)">price</span>=<span style="color:var(--nm)">8.99</span><br/>
+          &nbsp;&nbsp;<span style="color:var(--muted);font-style:italic"># ingredients not mentioned at all</span><br/>
+          )
+        </div>
+        <div class="opt-result"><code>food.ingredients</code> → <code>None</code><br/>No error! Optional = OK to skip ✅</div>
+      </div>
+    </div>
+
+    <div class="callout yellow" style="margin-top:20px">
+      <div class="callout-title">🍔 Think of it Like a Burger Order Form</div>
+      <p>
+        Name: <strong>[required]</strong> — you MUST fill this in.<br/>
+        Price: <strong>[required]</strong> — must have a price.<br/>
+        Ingredients: <strong>[optional]</strong> — some restaurants don't list them. That's fine.<br/><br/>
+        <code>Optional[List[str]] = None</code> means: "a list of strings, OR nothing. Default is nothing."<br/>
+        The <code>= None</code> part sets the default — so if you don't pass it, Pydantic fills in <code>None</code> automatically.
+      </p>
+    </div>
+
+    <div class="quiz-box" style="margin-top:24px">
+      <div class="quiz-q">🧠 Quick Check — What does <code>Optional[List[str]] = None</code> mean?</div>
+      <div class="quiz-opts">
+        <div class="quiz-opt wrong">A) The field is a required list of strings</div>
+        <div class="quiz-opt correct">B) The field can be a list of strings OR missing (defaults to None) ✅</div>
+        <div class="quiz-opt wrong">C) The field must be None always</div>
+        <div class="quiz-opt wrong">D) This is a syntax error</div>
+      </div>
+      <div class="quiz-ans">✅ <strong>Answer B</strong> — Optional makes the field skippable. <code>= None</code> is the default value when skipped. Pydantic won't complain if you don't provide it!</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 4 — DICT TRICK ════════ -->
+<div class="section" id="dict-trick">
+  <div class="container">
+    <div class="section-tag">Section 04 — 🪄 The Dict Magic Trick</div>
+    <h2>Passing Dicts Instead of Model Instances</h2>
+    <p class="subtitle">This is a superpower — and both files use it everywhere!</p>
+
+    <div class="dict-trick">
+      <div style="font-size:0.95rem;font-weight:800;margin-bottom:8px">When Pydantic expects a nested model, you can pass a <span style="color:var(--email)">plain dict</span> instead.</div>
+      <div style="font-size:0.88rem;color:var(--muted);margin-bottom:16px">Pydantic automatically converts the dict to the right model — validates it too!</div>
+
+      <div class="dt-row">
+        <div>
+          <div class="dt-box dict-in">
+            <span style="color:var(--muted)">You write:</span><br/>
+            <span style="color:var(--opt)">"owner"</span>: <span style="color:var(--text)">{</span><br/>
+            &nbsp;&nbsp;<span style="color:var(--opt)">"name"</span>: <span style="color:var(--str)">"John Doe"</span>,<br/>
+            &nbsp;&nbsp;<span style="color:var(--opt)">"email"</span>: <span style="color:var(--str)">"john@example.com"</span><br/>
+            <span style="color:var(--text)">}</span>
+          </div>
+          <div class="dt-label">a plain dict</div>
+        </div>
+        <div class="dt-arrow">→</div>
+        <div>
+          <div style="background:var(--surface2);border:1px solid rgba(244,114,182,0.4);border-radius:10px;padding:12px 16px;font-family:var(--font-mono);font-size:0.74rem">
+            <span style="color:var(--muted)">Pydantic creates:</span><br/>
+            <span style="color:var(--nest)">Owner</span>(<br/>
+            &nbsp;&nbsp;<span style="color:var(--at)">name</span>=<span style="color:var(--str)">"John Doe"</span>,<br/>
+            &nbsp;&nbsp;<span style="color:var(--at)">email</span>=<span style="color:var(--str)">"john@example.com"</span><br/>
+            )
+          </div>
+          <div class="dt-label">validated Owner instance ✅</div>
+        </div>
+        <div class="dt-arrow">→</div>
+        <div>
+          <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.3);border-radius:10px;padding:12px 16px;font-family:var(--font-mono);font-size:0.74rem;line-height:1.6">
+            <span style="color:var(--muted)">If email was wrong:</span><br/>
+            <span style="color:var(--str)">"email"</span>: <span style="color:rgba(244,63,94,0.9)">"notanemail"</span><br/>
+            → <span style="color:rgba(244,63,94,0.9)">ValidationError!</span><br/>
+            <span style="color:var(--muted);font-size:0.68rem">owner → email: not valid</span>
+          </div>
+          <div class="dt-label">caught immediately ✅</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout blue" style="margin-top:20px">
+      <div class="callout-title">💡 Why Is This Powerful?</div>
+      <p>
+        In real apps, data comes from JSON (APIs, databases, files) — always as dicts, never as Python objects. Pydantic's ability to accept raw dicts and auto-convert them means you don't have to manually do:<br/><br/>
+        <code>owner_obj = Owner(name=data["owner"]["name"], email=data["owner"]["email"])</code> ← painful<br/><br/>
+        Instead you just do: <code>Restaurant(**data)</code> and Pydantic handles ALL the nested conversions at every level automatically. This is exactly the <code>**external_data</code> pattern from the serialization files!
+      </p>
+    </div>
+
+    <!-- MODEL DUMP VIZ -->
+    <div style="margin-top:28px">
+      <h3 style="margin-bottom:6px">What does model_dump() look like for nested models?</h3>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:0">Nested models become nested dicts — perfect for databases and APIs.</p>
+    </div>
+    <div class="dump-viz">
+      <span style="color:var(--muted);font-style:italic">restaurant1.model_dump() →</span><br/><br/>
+      <span class="d-brace">{</span><br/>
+      &nbsp;&nbsp;<span class="d-key">'name'</span>: <span class="d-str">'Tasty Bites'</span>,<br/>
+      &nbsp;&nbsp;<span class="d-key">'location'</span>: <span class="d-str">'123, Flavor Street'</span>,<br/>
+      &nbsp;&nbsp;<span class="d-key">'foods'</span>: [  <span class="d-ann">← the List[Food] becomes a list of dicts</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="d-brace">{</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="d-key">'name'</span>: <span class="d-str">'Cheese Pizza'</span>,<br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="d-key">'price'</span>: <span class="d-num">12.5</span>,<br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="d-key">'ingredients'</span>: [<span class="d-str">'Cheese'</span>, <span class="d-str">'Tomato Sauce'</span>, <span class="d-str">'Dough'</span>]<br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="d-brace">}</span>,<br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="d-brace">{</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="d-key">'name'</span>: <span class="d-str">'Veggie Burger'</span>,<br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="d-key">'price'</span>: <span class="d-num">8.99</span>,<br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="d-key">'ingredients'</span>: <span class="d-null">None</span>  <span class="d-ann">← Optional field was not provided</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="d-brace">}</span><br/>
+      &nbsp;&nbsp;]<br/>
+      <span class="d-brace">}</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 5 — SPECIAL TYPES ════════ -->
+<div class="section" id="special">
+  <div class="container">
+    <div class="section-tag">Section 05 — 🔒 Smart Built-in Types</div>
+    <h2>Pydantic's Built-in Smart Validators</h2>
+    <p class="subtitle">File 2 uses special types that do validation automatically — no Field() constraints needed.</p>
+
+    <div class="type-cards">
+
+      <div class="tcard" style="border-color:rgba(96,165,250,0.35)">
+        <div class="tc-type" style="color:var(--email)">EmailStr</div>
+        <div class="tc-plain">📧 Must be a valid email address</div>
+        <div class="tc-what">Checks the format: needs an <code>@</code>, a domain, and a valid extension. Install: <code>pip install pydantic[email]</code></div>
+        <div class="tc-ex-bad">✗ "john"  ← no @</div>
+        <div class="tc-ex-bad">✗ "john@"  ← no domain</div>
+        <div class="tc-ex-bad">✗ "@example.com"  ← no name</div>
+        <div class="tc-ex-good">✓ "john@example.com"</div>
+      </div>
+
+      <div class="tcard" style="border-color:rgba(251,146,60,0.35)">
+        <div class="tc-type" style="color:var(--pos)">PositiveInt</div>
+        <div class="tc-plain">➕ Must be an integer greater than 0</div>
+        <div class="tc-what">Shortcut for <code>int</code> with <code>gt=0</code>. Perfect for things that can't be zero or negative: seats, quantity, count.</div>
+        <div class="tc-ex-bad">✗ 0  ← zero is not positive</div>
+        <div class="tc-ex-bad">✗ -5  ← negative</div>
+        <div class="tc-ex-bad">✗ 1.5  ← not an integer</div>
+        <div class="tc-ex-good">✓ 1, 50, 999</div>
+      </div>
+
+      <div class="tcard" style="border-color:rgba(167,139,250,0.35)">
+        <div class="tc-type" style="color:var(--url)">HttpUrl</div>
+        <div class="tc-plain">🌐 Must be a valid HTTP/HTTPS URL</div>
+        <div class="tc-what">Validates that the string is a real web address with scheme, domain. Returns a special URL object (not just a string) with parts accessible.</div>
+        <div class="tc-ex-bad">✗ "tastybites"</div>
+        <div class="tc-ex-bad">✗ "ftp://tastybites.com"</div>
+        <div class="tc-ex-good">✓ "http://tastybites.com"</div>
+        <div class="tc-ex-good">✓ "https://www.site.co.in"</div>
+      </div>
+
+    </div>
+
+    <div class="callout orange" style="margin-top:22px">
+      <div class="callout-title">💡 Why Not Just Use str?</div>
+      <p>
+        You <em>could</em> write <code>email: str</code> — but then <code>"notanemail"</code> would be accepted silently.<br/>
+        You <em>could</em> write <code>number_of_seats: int</code> — but then <code>-10</code> seats would pass.<br/><br/>
+        Pydantic's special types encode the <strong>rules of your domain into the type itself</strong>. The model declares what's valid — you don't write separate checking code. This is a core principle called <em>"make invalid states unrepresentable"</em>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 6 — CODE WALKTHROUGH ════════ -->
+<div class="section" id="code">
+  <div class="container">
+    <div class="section-tag">Section 06 — 💻 Code Walkthrough</div>
+    <h2>Both Files — Every Line Explained</h2>
+    <p class="subtitle">We'll read it like a story — step by step.</p>
+
+    <!-- FILE 1 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">complex-structure1.py</span>
+      <span class="file-badge" style="color:var(--nest);border-color:var(--nest)">NESTED MODELS + OPTIONAL</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">typing</span> <span class="kw">import</span> <span class="lc">List</span>, <span class="oc">Optional</span>
+<span class="cm"># List    → tells Python "this field holds a list of something"
+#           Before Python 3.9 you had to import it from typing.
+#           Python 3.9+ you can write list[str] directly (lowercase l).
+#           Here we use List[str] (uppercase) — both work the same.
+# Optional → tells Python "this field can be X, or it can be None"
+#             Optional[List[str]] = "a list of strings, or nothing"</span>
+
+<span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="pc">BaseModel</span>
+
+
+<span class="cm"># ─── INNER MODEL (defined FIRST because Restaurant uses it) ────────────────</span>
+<span class="kw">class</span> <span class="nc">Food</span>(<span class="pc">BaseModel</span>):
+    <span class="cm">    # A food item on a menu. Think of each menu item as a Food object.</span>
+
+    <span class="vr">name</span>: <span class="cls">str</span>
+    <span class="vr">price</span>: <span class="cls">float</span>
+
+    <span class="vr">ingredients</span>: <span class="oc">Optional</span>[<span class="lc">List</span>[<span class="cls">str</span>]] = <span class="kw">None</span>
+    <span class="cm">    # Breaking this down piece by piece:
+    #   List[str]             → a list where every item is a string
+    #   Optional[List[str]]   → that list, OR nothing at all
+    #   = None                → default value is None (if not provided)
+    #
+    # So: you CAN provide ["Cheese", "Dough"], or you can skip it entirely.
+    # Pydantic won't complain either way.
+    # If you pass something that isn't a list of strings → ValidationError.</span>
+
+
+<span class="cm"># ─── OUTER MODEL (uses Food inside it) ────────────────────────────────────</span>
+<span class="kw">class</span> <span class="nc">Restaurant</span>(<span class="pc">BaseModel</span>):
+    <span class="vr">name</span>: <span class="cls">str</span>
+    <span class="vr">location</span>: <span class="cls">str</span>
+    <span class="vr">foods</span>: <span class="lc">List</span>[<span class="nc">Food</span>]
+    <span class="cm">    # List[Food] = a list where every item must be a valid Food.
+    # Pydantic will validate each item individually.
+    # You can pass raw dicts — Pydantic converts them to Food objects!
+    # If the list is empty [] that's valid too (zero foods is allowed).</span>
+
+
+<span class="cm"># ─── CREATING THE RESTAURANT ──────────────────────────────────────────────</span>
+<span class="vr">restaurant1</span> = <span class="nc">Restaurant</span>(
+    <span class="at">name</span>=<span class="str">"Tasty Bites"</span>,
+    <span class="at">location</span>=<span class="str">"123, Flavor Street"</span>,
+    <span class="at">foods</span>=[
+        <span class="cm">        # Each item here is a plain DICT — not a Food object.</span>
+        <span class="cm">        # Pydantic sees List[Food] and auto-converts each dict to Food.</span>
+        {
+            <span class="str">"name"</span>: <span class="str">"Cheese Pizza"</span>,
+            <span class="str">"price"</span>: <span class="nm">12.50</span>,
+            <span class="str">"ingredients"</span>: [<span class="str">"Cheese"</span>, <span class="str">"Tomato Sauce"</span>, <span class="str">"Dough"</span>],
+            <span class="cm">            # ingredients provided → stored as a List[str]</span>
+        },
+        {<span class="str">"name"</span>: <span class="str">"Veggie Burger"</span>, <span class="str">"price"</span>: <span class="nm">8.99</span>},
+        <span class="cm">        # No ingredients here → Optional field → defaults to None
+        # Pydantic doesn't complain. ingredients will be None for this food.</span>
+    ],
+)
+
+<span class="fn">print</span>(<span class="vr">restaurant1</span>)
+<span class="cm"># Output: name='Tasty Bites' location='123...' foods=[Food(name='Cheese Pizza', ...), Food(name='Veggie Burger', price=8.99, ingredients=None)]
+# The dicts have been converted to Food objects inside the list!</span>
+
+<span class="fn">print</span>(<span class="vr">restaurant1</span>.<span class="fn">model_dump</span>())
+<span class="cm"># Returns the entire nested structure as plain Python dicts.
+# Perfect for saving to MongoDB, returning from a FastAPI endpoint, etc.
+# The Food objects become dicts, the List[Food] becomes a list of dicts.</span></pre>
+
+    <!-- FILE 2 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">complex-structure2.py</span>
+      <span class="file-badge" style="color:var(--email);border-color:var(--email)">ADVANCED NESTING + SMART TYPES</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">typing</span> <span class="kw">import</span> <span class="lc">List</span>
+<span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="pc">BaseModel</span>, <span class="ec">EmailStr</span>, <span class="psc">PositiveInt</span>, <span class="fn">conlist</span>, <span class="fn">Field</span>, <span class="uc">HttpUrl</span>
+<span class="cm"># EmailStr   → string that must be a valid email format
+# PositiveInt → integer that must be > 0
+# conlist     → a list with length constraints (imported but not used here — maybe for future use)
+# Field      → add extra constraints/descriptions (we used this in Week 5 files)
+# HttpUrl    → string that must be a valid HTTP/HTTPS URL</span>
+
+
+<span class="cm"># ─── 3 SMALL MODELS (used inside Restaurant) ──────────────────────────────</span>
+<span class="kw">class</span> <span class="nc">Address</span>(<span class="pc">BaseModel</span>):
+    <span class="vr">street</span>: <span class="cls">str</span>
+    <span class="vr">city</span>: <span class="cls">str</span>
+    <span class="vr">state</span>: <span class="cls">str</span>
+    <span class="vr">zip_code</span>: <span class="cls">str</span>
+    <span class="cm">    # Simple model for a postal address.
+    # zip_code is str (not int) — keeps leading zeros like "01234"
+    # and handles UK/Indian formats like "NW1 6XE", "400001"</span>
+
+
+<span class="kw">class</span> <span class="nc">Employee</span>(<span class="pc">BaseModel</span>):
+    <span class="vr">name</span>: <span class="cls">str</span>
+    <span class="vr">position</span>: <span class="cls">str</span>         <span class="cm"># e.g. "Chef", "Waiter", "Manager"</span>
+    <span class="vr">email</span>: <span class="ec">EmailStr</span>
+    <span class="cm">    # EmailStr validates the email format automatically.
+    # "jane.doe@example.com" → ✅
+    # "janedoe" → ✗ ValidationError: "value is not a valid email address"</span>
+
+
+<span class="kw">class</span> <span class="nc">Owner</span>(<span class="pc">BaseModel</span>):
+    <span class="vr">name</span>: <span class="cls">str</span>
+    <span class="vr">email</span>: <span class="ec">EmailStr</span>
+    <span class="cm">    # Same EmailStr here — the owner's email must also be valid.
+    # Owner and Employee both use EmailStr but are separate models
+    # because an Owner is not the same concept as an Employee
+    # (owner has different responsibilities, different fields potentially).</span>
+
+
+<span class="cm"># ─── THE MAIN MODEL (uses all 3 above) ────────────────────────────────────</span>
+<span class="kw">class</span> <span class="nc">Restaurant</span>(<span class="pc">BaseModel</span>):
+    <span class="vr">name</span>: <span class="cls">str</span>
+
+    <span class="vr">owner</span>: <span class="nc">Owner</span>
+    <span class="cm">    # A single Owner object (not a list — one restaurant has one owner).
+    # Pass a dict like {"name": "John", "email": "..."} → auto-converted.</span>
+
+    <span class="vr">address</span>: <span class="nc">Address</span>
+    <span class="cm">    # A single Address object.
+    # Pass a dict with all 4 fields → auto-converted to Address.</span>
+
+    <span class="vr">employees</span>: <span class="lc">List</span>[<span class="nc">Employee</span>]
+    <span class="cm">    # A list of Employee objects — can be many.
+    # Each dict in the list is validated as an Employee.
+    # If any employee has an invalid email → ValidationError with the index:
+    # "employees → 1 → email → value is not a valid email address"</span>
+
+    <span class="vr">number_of_seats</span>: <span class="psc">PositiveInt</span>
+    <span class="cm">    # Must be an integer AND must be > 0.
+    # PositiveInt = int + ge=1 (greater than or equal to 1).
+    # number_of_seats=0  → ✗ (0 is not positive)
+    # number_of_seats=50 → ✅</span>
+
+    <span class="vr">delivery</span>: <span class="cls">bool</span>
+    <span class="cm">    # True or False. Does this restaurant deliver?</span>
+
+    <span class="vr">website</span>: <span class="uc">HttpUrl</span>
+    <span class="cm">    # Must be a valid URL starting with http:// or https://.
+    # Pydantic parses it into a special URL object with .scheme, .host, .path.
+    # "tastybites" → ✗
+    # "http://tastybites.com" → ✅</span>
+
+
+<span class="cm"># ─── CREATING THE RESTAURANT ──────────────────────────────────────────────</span>
+<span class="vr">restaurant1</span> = <span class="nc">Restaurant</span>(
+    <span class="at">name</span>=<span class="str">"Tasty Bites"</span>,
+
+    <span class="at">owner</span>={<span class="str">"name"</span>: <span class="str">"John Doe"</span>, <span class="str">"email"</span>: <span class="str">"john.doe@example.com"</span>},
+    <span class="cm">    # Plain dict → Pydantic converts to Owner(name=..., email=...)
+    # EmailStr check runs: "john.doe@example.com" passes ✅</span>
+
+    <span class="at">address</span>={
+        <span class="str">"street"</span>: <span class="str">"123, Flavor Street"</span>,
+        <span class="str">"city"</span>: <span class="str">"Tastytown"</span>,
+        <span class="str">"state"</span>: <span class="str">"TS"</span>,
+        <span class="str">"zip_code"</span>: <span class="str">"12345"</span>,
+    },
+    <span class="cm">    # Dict → Address object. All 4 fields required (no Optional here).</span>
+
+    <span class="at">employees</span>=[
+        {<span class="str">"name"</span>: <span class="str">"Jane Doe"</span>, <span class="str">"position"</span>: <span class="str">"Chef"</span>, <span class="str">"email"</span>: <span class="str">"jane.doe@example.com"</span>},
+        {<span class="str">"name"</span>: <span class="str">"Mike Roe"</span>, <span class="str">"position"</span>: <span class="str">"Waiter"</span>, <span class="str">"email"</span>: <span class="str">"mike.roe@example.com"</span>},
+    ],
+    <span class="cm">    # List of 2 dicts → Pydantic converts each to Employee.
+    # Both emails validated. 2 employees created successfully.</span>
+
+    <span class="at">number_of_seats</span>=<span class="nm">50</span>,  <span class="cm"># 50 > 0 → PositiveInt ✅</span>
+    <span class="at">delivery</span>=<span class="kw">True</span>,        <span class="cm"># bool value ✅</span>
+    <span class="at">website</span>=<span class="str">"http://tastybites.com"</span>,
+    <span class="cm">    # HttpUrl validates this. Returns special URL object.
+    # In model_dump(): appears as a string URL again.</span>
+)
+
+<span class="fn">print</span>(<span class="vr">restaurant1</span>)
+<span class="cm"># Shows the entire nested structure — all sub-models shown inline.
+# Owner, Address, Employees all fully expanded.</span>
+
+<span class="fn">print</span>(<span class="vr">restaurant1</span>.<span class="fn">model_dump</span>())
+<span class="cm"># Returns the entire nested structure as plain dicts — fully recursive!
+# restaurant1.model_dump()["employees"][0]["email"] → 'jane.doe@example.com'
+# Great for: MongoDB insert, FastAPI response, JSON serialisation.</span></pre>
+
+  </div>
+</div>
+
+<!-- ════════ SECTION 7 — BIG PICTURE ════════ -->
+<div class="section" id="bigpicture">
+  <div class="container">
+    <div class="section-tag">Section 07 — 🚀 Why This All Matters</div>
+    <h2>The Real World Connection</h2>
+    <p class="subtitle">You just learned the exact pattern used in Instagram, Swiggy, and pydantic_ai.</p>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-stripe" style="background:var(--list)"></div>
+        <div class="card-emoji">📱</div>
+        <h3>Instagram / Social Apps</h3>
+        <p>A Post has a User, a list of Comments, each Comment has a User, a text, a timestamp. That's nested models — <code>Post(user=User, comments=List[Comment])</code>. Exact same pattern as Restaurant + Food!</p>
+      </div>
+      <div class="card">
+        <div class="card-stripe" style="background:var(--email)"></div>
+        <div class="card-emoji">🛵</div>
+        <h3>Swiggy / Food Delivery</h3>
+        <p>An Order has a Customer, a Restaurant, a list of OrderItems, a DeliveryAddress. Each OrderItem has a Food and quantity. This is the Restaurant + Food structure from File 1 — just with more models!</p>
+      </div>
+      <div class="card">
+        <div class="card-stripe" style="background:var(--nest)"></div>
+        <div class="card-emoji">🤖</div>
+        <h3>pydantic_ai output_type=</h3>
+        <p>Remember <code>Plan(tasks=List[SubTask])</code> from Week 5? That WAS nested models — SubTask inside Plan. Now you know every layer of how it works. <code>model_json_schema()</code> describes the full nested shape to the LLM!</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:28px">
+      <div class="callout-title">🏆 What You Can Now Build</div>
+      <p>
+        With nested Pydantic models + validation + serialization, you can build a <strong>complete data layer</strong> for any app:<br/><br/>
+        ✅ Define your data shapes with nested BaseModels<br/>
+        ✅ Validate incoming data from users, APIs, or LLMs automatically<br/>
+        ✅ Use <code>EmailStr</code>, <code>PositiveInt</code>, <code>HttpUrl</code> for built-in format checking<br/>
+        ✅ Use <code>Optional</code> for fields that might not always be present<br/>
+        ✅ Export to dict for databases, to JSON for APIs, to schema for LLMs<br/><br/>
+        Next stop: <strong>pydantic_ai agents with tools</strong> — where your agent can call Python functions, databases, and APIs with this same validated data! 🚀
+      </p>
+    </div>
+
+    <!-- QUICK CHEAT SHEET -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;margin-top:24px">
+      <div style="font-weight:900;font-size:1rem;margin-bottom:18px">📋 Quick Cheat Sheet — Everything From These 2 Files</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--nest);margin-bottom:4px">Nested model</div>
+          <div style="color:var(--muted)">class A(BaseModel):<br/>&nbsp;b: B  ← B is also a model</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--list);margin-bottom:4px">List of models</div>
+          <div style="color:var(--muted)">foods: List[Food]</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--opt);margin-bottom:4px">Optional field</div>
+          <div style="color:var(--muted)">x: Optional[str] = None</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--email);margin-bottom:4px">Email validation</div>
+          <div style="color:var(--muted)">email: EmailStr</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--pos);margin-bottom:4px">Positive number</div>
+          <div style="color:var(--muted)">seats: PositiveInt</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--url);margin-bottom:4px">URL validation</div>
+          <div style="color:var(--muted)">site: HttpUrl</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--list);margin-bottom:4px">Pass dict for nested</div>
+          <div style="color:var(--muted)">Restaurant(owner={"name":..})</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:0.73rem">
+          <div style="color:var(--model);margin-bottom:4px">Export everything</div>
+          <div style="color:var(--muted)">r.model_dump()  ← nested dicts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>⚡ GenAI Mentor · Complex Pydantic Structures · algo-genai-2026</div>
+  <div style="margin-top:6px;color:#151e35">Models inside models — like Lego, but for data 🧱</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LLM Calls — GenAI Mentor Breakdown</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #111118;
+    --card:     #16161f;
+    --border:   #2a2a3a;
+    --sync:     #ff6b6b;
+    --async-s:  #ffd93d;
+    --async-b:  #6bcb77;
+    --mt:       #4d96ff;
+    --purple:   #c084fc;
+    --cyan:     #22d3ee;
+    --orange:   #fb923c;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --code-bg:  #0d0d14;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;line-height:1.7;font-size:15px;overflow-x:hidden}
+
+  /* ── NOISE OVERLAY ── */
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.4}
+
+  /* ── HERO ── */
+  .hero{position:relative;padding:80px 40px 60px;text-align:center;overflow:hidden}
+  .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(96,165,250,.08),transparent 70%);pointer-events:none}
+  .tag{display:inline-block;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);color:#60a5fa;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;padding:5px 14px;border-radius:4px;margin-bottom:24px}
+  .hero h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5vw,3.8rem);font-weight:800;line-height:1.1;margin-bottom:20px;background:linear-gradient(135deg,#fff 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p{font-size:1.05rem;color:var(--muted);max-width:600px;margin:0 auto 40px}
+  
+  /* ── CONCEPT BADGE ROW ── */
+  .badge-row{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-bottom:60px}
+  .badge{display:flex;align-items:center;gap:8px;padding:8px 18px;border-radius:30px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border:1.5px solid;letter-spacing:.5px}
+  .badge.sync   {color:var(--sync);   border-color:var(--sync);   background:rgba(255,107,107,.08)}
+  .badge.async-s{color:var(--async-s);border-color:var(--async-s);background:rgba(255,217,61,.08)}
+  .badge.async-b{color:var(--async-b);border-color:var(--async-b);background:rgba(107,203,119,.08)}
+  .badge.mt     {color:var(--mt);     border-color:var(--mt);     background:rgba(77,150,255,.08)}
+  .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+
+  /* ── LAYOUT ── */
+  .container{max-width:1100px;margin:0 auto;padding:0 32px}
+
+  /* ── SECTION HEADERS ── */
+  .sec-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .sec-title{font-family:'Syne',sans-serif;font-size:clamp(1.6rem,3vw,2.4rem);font-weight:800;margin-bottom:40px;line-height:1.2}
+
+  /* ── CONCEPT CARDS ── */
+  .concepts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:80px}
+  .ccard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+  .ccard:hover{transform:translateY(-3px)}
+  .ccard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+  .ccard.sync::before  {background:var(--sync)}
+  .ccard.async-s::before{background:var(--async-s)}
+  .ccard.async-b::before{background:var(--async-b)}
+  .ccard.mt::before    {background:var(--mt)}
+  .ccard.extra::before {background:linear-gradient(90deg,var(--purple),var(--cyan))}
+  .ccard:hover.sync    {border-color:var(--sync)}
+  .ccard:hover.async-s {border-color:var(--async-s)}
+  .ccard:hover.async-b {border-color:var(--async-b)}
+  .ccard:hover.mt      {border-color:var(--mt)}
+  .ccard:hover.extra   {border-color:var(--purple)}
+  .ccard-icon{font-size:2rem;margin-bottom:14px}
+  .ccard h3{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:10px}
+  .ccard p{font-size:.88rem;color:#94a3b8;line-height:1.65}
+  .ccard code{background:rgba(255,255,255,.06);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+  /* ── ANALOGY BOX ── */
+  .analogy{background:linear-gradient(135deg,rgba(192,132,252,.06),rgba(34,211,238,.06));border:1px solid rgba(192,132,252,.25);border-radius:14px;padding:28px 32px;margin-bottom:80px}
+  .analogy h3{font-family:'Syne',sans-serif;font-size:1.2rem;color:var(--purple);margin-bottom:14px}
+  .analogy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px}
+  .analogy-item{background:rgba(255,255,255,.04);border-radius:10px;padding:16px}
+  .analogy-item .emoji{font-size:1.6rem;margin-bottom:8px}
+  .analogy-item strong{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:6px}
+  .analogy-item span{font-size:.82rem;color:#94a3b8}
+
+  /* ── PERF TIMELINE ── */
+  .timeline{display:flex;flex-direction:column;gap:10px;margin-bottom:80px}
+  .tl-row{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px}
+  .tl-label{font-family:'JetBrains Mono',monospace;font-size:11px;width:160px;flex-shrink:0}
+  .tl-bar-wrap{flex:1;background:rgba(255,255,255,.05);border-radius:6px;height:18px;overflow:hidden}
+  .tl-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:10px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:.5px;transition:width .6s ease}
+  .tl-bar.sync    {background:linear-gradient(90deg,var(--sync),#ff8e8e);width:100%}
+  .tl-bar.async-s {background:linear-gradient(90deg,var(--async-s),#ffe89d);width:85%}
+  .tl-bar.async-b {background:linear-gradient(90deg,var(--async-b),#9be5a5);width:15%}
+  .tl-bar.mt      {background:linear-gradient(90deg,var(--mt),#7fb3ff);width:12%}
+  .tl-note{font-size:.75rem;color:var(--muted);width:90px;flex-shrink:0;text-align:right}
+
+  /* ── CODE FILES ── */
+  .file-section{margin-bottom:60px}
+  .file-header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .file-pill{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;font-weight:700}
+  .file-pill.sync    {background:rgba(255,107,107,.15);color:var(--sync)}
+  .file-pill.async-s {background:rgba(255,217,61,.15);color:var(--async-s)}
+  .file-pill.async-b {background:rgba(107,203,119,.15);color:var(--async-b)}
+  .file-pill.mt      {background:rgba(77,150,255,.15);color:var(--mt)}
+  .file-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
+  .file-desc{font-size:.88rem;color:#94a3b8;margin-bottom:16px;padding-left:2px}
+  .code-wrap{background:var(--code-bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative}
+  .code-toolbar{background:#111118;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:8px}
+  .dot-r{width:11px;height:11px;border-radius:50%;background:#ff5f57}
+  .dot-y{width:11px;height:11px;border-radius:50%;background:#febc2e}
+  .dot-g{width:11px;height:11px;border-radius:50%;background:#28c840}
+  .code-filename{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-left:auto}
+  pre{padding:24px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.9;tab-size:4}
+  
+  /* syntax tokens */
+  .k{color:#c084fc}     /* keyword */
+  .f{color:#60a5fa}     /* function */
+  .s{color:#86efac}     /* string */
+  .c{color:#475569;font-style:italic} /* comment */
+  .cm{color:#22d3ee;font-style:italic;font-weight:500} /* mentor comment */
+  .n{color:#fbbf24}     /* number */
+  .m{color:#fb923c}     /* module/import */
+  .v{color:#f1f5f9}     /* variable */
+  .p{color:#94a3b8}     /* punctuation */
+
+  /* ── INFO BOXES ── */
+  .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:20px}
+  .ibox{border-radius:12px;padding:20px 22px;border:1px solid}
+  .ibox.warn {background:rgba(251,146,60,.05); border-color:rgba(251,146,60,.2); color:var(--orange)}
+  .ibox.good {background:rgba(107,203,119,.05);border-color:rgba(107,203,119,.2);color:var(--async-b)}
+  .ibox.info {background:rgba(77,150,255,.05); border-color:rgba(77,150,255,.2); color:var(--mt)}
+  .ibox h4{font-family:'Syne',sans-serif;font-size:.95rem;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .ibox ul{list-style:none;padding:0}
+  .ibox ul li{font-size:.82rem;color:#94a3b8;padding:3px 0;display:flex;gap:8px}
+  .ibox ul li::before{content:'→';flex-shrink:0;color:inherit;opacity:.7}
+
+  /* ── USE CASES ── */
+  .uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-bottom:80px}
+  .uc-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;transition:transform .2s}
+  .uc-card:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.12)}
+  .uc-card .uc-tag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:block}
+  .uc-card h4{font-family:'Syne',sans-serif;font-size:1rem;margin-bottom:8px}
+  .uc-card p{font-size:.82rem;color:#94a3b8}
+  .uc-card.sync    .uc-tag{color:var(--sync)}
+  .uc-card.async-b .uc-tag{color:var(--async-b)}
+  .uc-card.mt      .uc-tag{color:var(--mt)}
+  .uc-card.purple  .uc-tag{color:var(--purple)}
+
+  /* ── GOTCHAS ── */
+  .gotcha-table{width:100%;border-collapse:collapse;margin-bottom:80px;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+  .gotcha-table th{background:#111118;padding:14px 18px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted)}
+  .gotcha-table td{padding:14px 18px;border-top:1px solid var(--border);font-size:.83rem;vertical-align:top}
+  .gotcha-table tr:hover td{background:rgba(255,255,255,.02)}
+  .gg{font-size:1.1rem}
+  .gotcha-table .topic{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan)}
+
+  /* ── CHEATSHEET ── */
+  .cheatsheet{background:linear-gradient(135deg,rgba(192,132,252,.08),rgba(77,150,255,.08));border:1px solid rgba(192,132,252,.2);border-radius:16px;padding:32px;margin-bottom:60px}
+  .cheatsheet h3{font-family:'Syne',sans-serif;font-size:1.3rem;margin-bottom:24px;color:var(--purple)}
+  .cs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .cs-item{background:rgba(0,0,0,.3);border-radius:10px;padding:16px}
+  .cs-item .cs-head{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+  .cs-item .cs-val{font-size:.82rem;color:#94a3b8}
+  .cs-item.sync    .cs-head{color:var(--sync)}
+  .cs-item.async-s .cs-head{color:var(--async-s)}
+  .cs-item.async-b .cs-head{color:var(--async-b)}
+  .cs-item.mt      .cs-head{color:var(--mt)}
+
+  /* ── FOOTER ── */
+  .footer{text-align:center;padding:40px;color:var(--muted);font-size:.8rem;font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
+
+  /* ── DIVIDER ── */
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:60px 0}
+
+  /* scroll animation */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{animation:fadeUp .5s ease both}
+
+  /* ── TOC ── */
+  .toc{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:60px}
+  .toc a{text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);padding:6px 14px;border:1px solid var(--border);border-radius:30px;transition:all .2s}
+  .toc a:hover{color:var(--text);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.04)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HERO ═══════════════════════════ -->
+<div class="hero">
+  <div class="tag">🤖 GenAI Mentor · Deep Dive</div>
+  <h1>Sync vs Async vs<br/>Multithreading LLM Calls</h1>
+  <p>A complete breakdown of 4 real Python patterns for calling LLMs — from sequential blocking to concurrent powerhouses.</p>
+
+  <div class="badge-row">
+    <div class="badge sync"><div class="dot"></div>a_sync — Sequential Blocking</div>
+    <div class="badge async-s"><div class="dot"></div>b_async — Async Sequential</div>
+    <div class="badge async-b"><div class="dot"></div>c_async — Async Batched</div>
+    <div class="badge mt"><div class="dot"></div>d_mt — Multithreading</div>
+  </div>
+
+  <nav class="toc">
+    <a href="#concepts">🧠 Core Concepts</a>
+    <a href="#analogy">🍕 Analogy</a>
+    <a href="#perf">⚡ Performance</a>
+    <a href="#file-a">📄 File A</a>
+    <a href="#file-b">📄 File B</a>
+    <a href="#file-c">📄 File C</a>
+    <a href="#file-d">📄 File D</a>
+    <a href="#usecases">🌍 Use Cases</a>
+    <a href="#gotchas">⚠️ Gotchas</a>
+  </nav>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════ CORE CONCEPTS ═══════════════════════════ -->
+<section id="concepts">
+  <div class="sec-label">Section 01</div>
+  <div class="sec-title">🧠 Core Concepts You Need to Know</div>
+
+  <div class="concepts-grid">
+
+    <div class="ccard sync">
+      <div class="ccard-icon">🔴</div>
+      <h3>Synchronous (Blocking)</h3>
+      <p>Your program calls a function and <strong>freezes</strong> until it gets a response. No other work happens. Like standing in line — you can't move until the person in front does. <code>agent.run_sync()</code> does exactly this.</p>
+    </div>
+
+    <div class="ccard async-s">
+      <div class="ccard-icon">🟡</div>
+      <h3>Async / Await (Coroutines)</h3>
+      <p>Python's <code>async/await</code> lets a function <strong>yield control</strong> while waiting for I/O. The event loop can run other coroutines in the meantime. But <code>await agent.run()</code> in a loop is still sequential — you await one-by-one.</p>
+    </div>
+
+    <div class="ccard async-b">
+      <div class="ccard-icon">🟢</div>
+      <h3>asyncio.gather() — True Batching</h3>
+      <p><code>asyncio.gather(*tasks)</code> launches <strong>all coroutines at once</strong> and waits for all to finish. The event loop interleaves them during I/O waits. This is the sweet spot for API-heavy LLM calls.</p>
+    </div>
+
+    <div class="ccard mt">
+      <div class="ccard-icon">🔵</div>
+      <h3>Multithreading (ThreadPool)</h3>
+      <p><code>ThreadPoolExecutor</code> creates real OS threads. Each thread independently calls the LLM. Python's GIL is bypassed for I/O operations, making this effective. Good when your code isn't async-native.</p>
+    </div>
+
+    <div class="ccard extra">
+      <div class="ccard-icon">🔮</div>
+      <h3>Event Loop (asyncio)</h3>
+      <p>The <strong>single-threaded scheduler</strong> at the heart of asyncio. It runs one task at a time but switches between them during <code>await</code> points. <code>asyncio.run(main())</code> starts and manages this loop.</p>
+    </div>
+
+    <div class="ccard extra">
+      <div class="ccard-icon">🧩</div>
+      <h3>PydanticAI Agent</h3>
+      <p>A structured AI agent wrapper. It handles prompt formatting, model communication, output parsing, and observability. Supports both <code>run_sync()</code> (blocking) and <code>run()</code> (async coroutine).</p>
+    </div>
+
+    <div class="ccard extra">
+      <div class="ccard-icon">📡</div>
+      <h3>Logfire Observability</h3>
+      <p><code>logfire.configure()</code> + <code>instrument_pydantic_ai()</code> automatically traces every LLM call — latency, tokens, model name — and sends to a dashboard. Essential for production monitoring.</p>
+    </div>
+
+    <div class="ccard extra">
+      <div class="ccard-icon">🌿</div>
+      <h3>dotenv + Environment Vars</h3>
+      <p><code>load_dotenv(override=True)</code> reads your <code>.env</code> file and loads API keys into <code>os.environ</code>. <code>override=True</code> means the file values win even if the var is already set in the shell.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════ ANALOGY ═══════════════════════════ -->
+<section id="analogy">
+  <div class="analogy">
+    <h3>🍕 The Restaurant Kitchen Analogy</h3>
+    <p style="color:#94a3b8;font-size:.9rem;margin-bottom:4px">Think of each LLM call as an order sent to the kitchen. Here's how each approach handles 10 orders:</p>
+    <div class="analogy-grid">
+      <div class="analogy-item">
+        <div class="emoji">🔴</div>
+        <strong>Sync (a_sync)</strong>
+        <span>One waiter, one order at a time. Waits at the counter until dish arrives before taking the next order. Slowest.</span>
+      </div>
+      <div class="analogy-item">
+        <div class="emoji">🟡</div>
+        <strong>Async Sequential (b_async)</strong>
+        <span>Waiter uses a walkie-talkie but still waits for each reply before calling again. Slightly better.</span>
+      </div>
+      <div class="analogy-item">
+        <div class="emoji">🟢</div>
+        <strong>Async Batch (c_async)</strong>
+        <span>Waiter radios ALL 10 orders at once. Kitchen processes them in parallel. Picks up all at the same time. 🚀</span>
+      </div>
+      <div class="analogy-item">
+        <div class="emoji">🔵</div>
+        <strong>Multithreading (d_mt)</strong>
+        <span>10 different waiters, each handling one order independently. Parallel but more overhead per waiter.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ PERFORMANCE ═══════════════════════════ -->
+<section id="perf">
+  <div class="sec-label">Section 02</div>
+  <div class="sec-title">⚡ Performance Comparison (Relative)</div>
+
+  <div class="timeline">
+    <div class="tl-row">
+      <div class="tl-label" style="color:var(--sync)">🔴 a_sync (100 calls)</div>
+      <div class="tl-bar-wrap"><div class="tl-bar sync">~250–400s</div></div>
+      <div class="tl-note">1× baseline</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label" style="color:var(--async-s)">🟡 b_async (10 calls)</div>
+      <div class="tl-bar-wrap"><div class="tl-bar async-s">~25–40s</div></div>
+      <div class="tl-note">~same / call</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label" style="color:var(--async-b)">🟢 c_async batch (10)</div>
+      <div class="tl-bar-wrap"><div class="tl-bar async-b">~3–8s</div></div>
+      <div class="tl-note">5–10× faster</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label" style="color:var(--mt)">🔵 d_mt thread (100)</div>
+      <div class="tl-bar-wrap"><div class="tl-bar mt">~4–10s</div></div>
+      <div class="tl-note">~40× faster</div>
+    </div>
+  </div>
+  <p style="color:var(--muted);font-size:.8rem;text-align:center;margin-top:-30px;margin-bottom:60px">⚠ Exact times depend on model speed, hardware & network. These are illustrative ratios.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════ FILE A ═══════════════════════════ -->
+<section id="file-a" class="file-section">
+  <div class="sec-label">File A</div>
+  <div class="file-header">
+    <span class="file-pill sync">SYNC</span>
+    <span class="file-name">a_sync_llm_calls.py</span>
+  </div>
+  <p class="file-desc">The simplest approach — 100 LLM calls made one by one. Each call blocks the thread until the model responds.</p>
+
+  <div class="code-wrap">
+    <div class="code-toolbar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="code-filename">a_sync_llm_calls.py</span></div>
+    <pre><span class="c"># ─── IMPORTS ───────────────────────────────────────────────────────────────</span>
+<span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>    <span class="cm"># 📦 reads .env file → loads API keys to os.environ</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span>    <span class="cm"># 🤖 typed AI agent: wraps prompt/response/validation</span>
+<span class="k">import</span> <span class="m">logfire</span>                    <span class="cm"># 📡 observability: traces every LLM call automatically</span>
+<span class="k">import</span> <span class="m">time</span>                       <span class="cm"># ⏱ used to benchmark total execution time</span>
+
+<span class="c"># ─── SETUP ─────────────────────────────────────────────────────────────────</span>
+<span class="f">load_dotenv</span><span class="p">(</span>override<span class="p">=</span><span class="k">True</span><span class="p">)</span>       <span class="cm"># override=True: .env values beat shell env vars</span>
+<span class="f">logfire.configure</span><span class="p">()</span>             <span class="cm"># initialise logfire with env credentials</span>
+<span class="f">logfire.instrument_pydantic_ai</span><span class="p">()</span> <span class="cm"># auto-patch Agent to emit spans (latency, tokens, model)</span>
+
+<span class="c"># ─── AGENT DEFINITION ──────────────────────────────────────────────────────</span>
+<span class="v">agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    <span class="s">'ollama:llama3-groq-tool-use:8b'</span><span class="p">,</span>  <span class="cm"># 🏠 local Ollama model — no API cost, runs on your machine</span>
+    instructions<span class="p">=</span><span class="s">"You are a helpful AI assistant"</span><span class="p">,</span>  <span class="cm"># system prompt baked in</span>
+<span class="p">)</span>
+
+<span class="c"># ─── MAIN FUNCTION ─────────────────────────────────────────────────────────</span>
+<span class="k">def</span> <span class="f">main</span><span class="p">()</span> <span class="p">-></span> <span class="k">None</span><span class="p">:</span>
+    <span class="k">for</span> _ <span class="k">in</span> <span class="f">range</span><span class="p">(</span><span class="n">100</span><span class="p">):</span>             <span class="cm"># 🔁 loop 100 times — _ means "we don't need the index"</span>
+        <span class="v">res</span> <span class="p">=</span> <span class="v">agent</span><span class="p">.</span><span class="f">run_sync</span><span class="p">(</span>         <span class="cm"># 🚫 BLOCKING: thread freezes here until LLM responds</span>
+            <span class="s">"what is the capital of india. Just answer in one word"</span>
+        <span class="p">)</span>
+        <span class="f">print</span><span class="p">(</span><span class="v">res</span><span class="p">.</span>output<span class="p">)</span>             <span class="cm"># .output = parsed/validated text from the model</span>
+    <span class="c"># ⚠️ Total time = sum of ALL 100 individual LLM response times (sequential)</span>
+
+<span class="c"># ─── BENCHMARK ─────────────────────────────────────────────────────────────</span>
+<span class="v">start_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>  <span class="cm"># high-resolution timer — more precise than time.time()</span>
+<span class="f">main</span><span class="p">()</span>
+<span class="v">end_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="f">print</span><span class="p">(</span><span class="s">f"Time taken(sync): {end_time - start_time:.2f} seconds"</span><span class="p">)</span>  <span class="cm"># :.2f = 2 decimal places</span>
+</pre>
+  </div>
+
+  <div class="info-grid" style="margin-top:16px">
+    <div class="ibox warn"><h4>⚠️ What's Happening</h4><ul>
+      <li>Each call blocks — call 2 can't start until call 1 finishes</li>
+      <li>100 sequential waits = 100× single call latency</li>
+      <li><code>run_sync()</code> internally runs its own event loop and blocks</li>
+    </ul></div>
+    <div class="ibox good"><h4>✅ When This Is Fine</h4><ul>
+      <li>Scripts where you need ordered, serial processing</li>
+      <li>Debugging — easiest to trace errors</li>
+      <li>Very small number of calls (1–5)</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ FILE B ═══════════════════════════ -->
+<section id="file-b" class="file-section">
+  <div class="sec-label">File B</div>
+  <div class="file-header">
+    <span class="file-pill async-s">ASYNC SEQUENTIAL</span>
+    <span class="file-name">b_async_llm_calls.py</span>
+  </div>
+  <p class="file-desc">Async function, but still sequential. Awaiting one-by-one in a loop doesn't give you concurrency — it just uses the async interface.</p>
+
+  <div class="code-wrap">
+    <div class="code-toolbar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="code-filename">b_async_llm_calls.py</span></div>
+    <pre><span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span>
+<span class="k">import</span> <span class="m">logfire</span>
+<span class="k">import</span> <span class="m">time</span>
+<span class="k">import</span> <span class="m">asyncio</span>                    <span class="cm"># 🔑 NEW: Python's async I/O framework</span>
+
+<span class="f">load_dotenv</span><span class="p">(</span>override<span class="p">=</span><span class="k">True</span><span class="p">)</span>
+<span class="f">logfire.configure</span><span class="p">()</span>
+<span class="f">logfire.instrument_pydantic_ai</span><span class="p">()</span>
+
+<span class="v">agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    <span class="s">'ollama:llama3.1:8b'</span><span class="p">,</span>           <span class="cm"># 📌 different model than file A (llama3.1 vs groq-tool-use)</span>
+    instructions<span class="p">=</span><span class="s">"You are a helpful AI assistant"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c"># ─── ASYNC FUNCTION ────────────────────────────────────────────────────────</span>
+<span class="k">async def</span> <span class="f">main</span><span class="p">()</span> <span class="p">-></span> <span class="k">None</span><span class="p">:</span>           <span class="cm"># async def → this is a coroutine, not a regular function</span>
+    <span class="k">for</span> _ <span class="k">in</span> <span class="f">range</span><span class="p">(</span><span class="n">10</span><span class="p">):</span>             <span class="cm"># only 10 calls here (vs 100 in file A)</span>
+        <span class="v">res</span> <span class="p">=</span> <span class="k">await</span> <span class="v">agent</span><span class="p">.</span><span class="f">run</span><span class="p">(</span>     <span class="cm"># await = "pause here, let event loop run other tasks"</span>
+            <span class="s">"what is the capital of india. Just answer in one word"</span>
+        <span class="p">)</span>
+        <span class="c"># ⚠️ BUT: there ARE no other tasks scheduled! So this is still sequential.</span>
+        <span class="c">#    await in a for-loop = one at a time. No parallelism gained.</span>
+        <span class="f">print</span><span class="p">(</span><span class="v">res</span><span class="p">.</span>output<span class="p">)</span>
+
+<span class="c"># ─── ENTRY POINT ───────────────────────────────────────────────────────────</span>
+<span class="v">start_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="v">asyncio</span><span class="p">.</span><span class="f">run</span><span class="p">(</span><span class="f">main</span><span class="p">())</span>                <span class="cm"># 🔁 creates a NEW event loop, runs main(), then closes it</span>
+<span class="v">end_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="f">print</span><span class="p">(</span><span class="s">f"Time taken(Async-no batch): {end_time - start_time:.2f} seconds"</span><span class="p">)</span>
+</pre>
+  </div>
+
+  <div class="info-grid" style="margin-top:16px">
+    <div class="ibox warn"><h4>⚠️ The Big Misconception</h4><ul>
+      <li>Using <code>async/await</code> does NOT automatically make things parallel</li>
+      <li>Awaiting inside a loop = sequential. Same wall-clock time as sync.</li>
+      <li>You need gather() or create_task() to get real concurrency</li>
+    </ul></div>
+    <div class="ibox info"><h4>💡 Why Use This Then?</h4><ul>
+      <li>You're in an async context (FastAPI, Discord.py bots, etc.)</li>
+      <li>The event loop is already running — can't use run_sync()</li>
+      <li>Stepping stone to understanding the async model</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ FILE C ═══════════════════════════ -->
+<section id="file-c" class="file-section">
+  <div class="sec-label">File C</div>
+  <div class="file-header">
+    <span class="file-pill async-b">ASYNC BATCHED ⚡</span>
+    <span class="file-name">c_async_llm_calls.py</span>
+  </div>
+  <p class="file-desc">The async sweet spot. All coroutines are created upfront and gathered together — the event loop interleaves them during I/O waits for massive speedup.</p>
+
+  <div class="code-wrap">
+    <div class="code-toolbar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="code-filename">c_async_llm_calls.py</span></div>
+    <pre><span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span>
+<span class="k">import</span> <span class="m">logfire</span>
+<span class="k">import</span> <span class="m">time</span>
+<span class="k">import</span> <span class="m">asyncio</span>
+
+<span class="f">load_dotenv</span><span class="p">(</span>override<span class="p">=</span><span class="k">True</span><span class="p">)</span>
+<span class="f">logfire.configure</span><span class="p">()</span>
+<span class="f">logfire.instrument_pydantic_ai</span><span class="p">()</span>
+
+<span class="v">agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    <span class="s">'ollama:llama3-groq-tool-use:8b'</span><span class="p">,</span>
+    instructions<span class="p">=</span><span class="s">"You are a helpful AI assistant"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">async def</span> <span class="f">main</span><span class="p">()</span> <span class="p">-></span> <span class="k">None</span><span class="p">:</span>
+    <span class="c"># ─── STEP 1: BUILD TASK LIST (no execution yet!) ────────────────────────</span>
+    <span class="v">tasks</span> <span class="p">=</span> <span class="p">[</span>
+        <span class="v">agent</span><span class="p">.</span><span class="f">run</span><span class="p">(</span><span class="s">"what is the capital of india. Just answer in one word"</span><span class="p">)</span>
+        <span class="k">for</span> _ <span class="k">in</span> <span class="f">range</span><span class="p">(</span><span class="n">10</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="cm"># ☝️ agent.run() returns a coroutine object — NOT yet executed.</span>
+    <span class="cm">#    This is a list of 10 "pending promises" ready to run.</span>
+    <span class="cm">#    Think of it as 10 stamped envelopes not yet dropped in the mailbox.</span>
+
+    <span class="c"># ─── STEP 2: GATHER = run all concurrently ──────────────────────────────</span>
+    <span class="v">values</span> <span class="p">=</span> <span class="k">await</span> <span class="v">asyncio</span><span class="p">.</span><span class="f">gather</span><span class="p">(</span><span class="p">*</span><span class="v">tasks</span><span class="p">)</span>
+    <span class="cm"># ☝️ *tasks unpacks the list → gather(*[t1, t2, ... t10])</span>
+    <span class="cm">#    gather() schedules ALL coroutines simultaneously on the event loop.</span>
+    <span class="cm">#    When one await point is hit (waiting for HTTP response),</span>
+    <span class="cm">#    the loop switches to the next coroutine. True interleaving!</span>
+    <span class="cm">#    Wall-clock time ≈ max(individual times), not sum.</span>
+
+    <span class="f">print</span><span class="p">(</span><span class="p">*</span><span class="v">values</span><span class="p">)</span>
+    <span class="cm"># ☝️ *values unpacks the results list → print(v1, v2, ... v10)</span>
+    <span class="cm">#    values is a list of RunResult objects in original order (gather preserves order!)</span>
+
+<span class="v">start_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="v">asyncio</span><span class="p">.</span><span class="f">run</span><span class="p">(</span><span class="f">main</span><span class="p">())</span>
+<span class="v">end_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="f">print</span><span class="p">(</span><span class="s">f"Time taken(Async-batch): {end_time - start_time:.2f} seconds"</span><span class="p">)</span>
+</pre>
+  </div>
+
+  <div class="info-grid" style="margin-top:16px">
+    <div class="ibox good"><h4>🚀 Why This Wins for I/O</h4><ul>
+      <li>All 10 HTTP requests to Ollama are in-flight simultaneously</li>
+      <li>Single thread — no thread-switching overhead</li>
+      <li><code>gather()</code> preserves result ORDER regardless of completion order</li>
+      <li>Easy error handling: use <code>return_exceptions=True</code></li>
+    </ul></div>
+    <div class="ibox warn"><h4>⚠️ Gotchas</h4><ul>
+      <li>If one task raises, gather() propagates immediately (unless return_exceptions=True)</li>
+      <li>Still single-threaded — CPU-heavy tasks won't benefit</li>
+      <li>Sending 100 requests may hit rate limits on remote APIs</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ FILE D ═══════════════════════════ -->
+<section id="file-d" class="file-section">
+  <div class="sec-label">File D</div>
+  <div class="file-header">
+    <span class="file-pill mt">MULTITHREADING 🔵</span>
+    <span class="file-name">d_mt_llm_calls.py</span>
+  </div>
+  <p class="file-desc">Uses a ThreadPoolExecutor with up to 100 real OS threads. Each thread independently makes a blocking LLM call. Python's GIL doesn't block I/O-bound threads.</p>
+
+  <div class="code-wrap">
+    <div class="code-toolbar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="code-filename">d_mt_llm_calls.py</span></div>
+    <pre><span class="k">import</span> <span class="m">concurrent</span>                 <span class="cm"># 🔑 concurrent.futures: high-level threading/multiprocessing</span>
+<span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span>
+<span class="k">import</span> <span class="m">logfire</span>
+<span class="k">import</span> <span class="m">time</span>
+
+<span class="f">load_dotenv</span><span class="p">(</span>override<span class="p">=</span><span class="k">True</span><span class="p">)</span>
+<span class="f">logfire.configure</span><span class="p">()</span>
+<span class="f">logfire.instrument_pydantic_ai</span><span class="p">()</span>
+
+<span class="v">agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    <span class="s">'ollama:llama3-groq-tool-use:8b'</span><span class="p">,</span>
+    instructions<span class="p">=</span><span class="s">"You are a helpful AI assistant"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c"># ─── WORKER FUNCTION (runs in each thread) ─────────────────────────────────</span>
+<span class="k">def</span> <span class="f">run_agent</span><span class="p">(</span>i<span class="p">):</span>
+    <span class="cm"># i = task index (passed by executor but not actually used here)</span>
+    <span class="k">return</span> <span class="v">agent</span><span class="p">.</span><span class="f">run_sync</span><span class="p">(</span>          <span class="cm"># run_sync is fine in a thread — each thread has its own stack</span>
+        <span class="s">"what is the capital of india. Just answer in one word"</span>
+    <span class="p">)</span>
+    <span class="c"># ⚠️ agent must be thread-safe for this to work reliably</span>
+
+<span class="k">def</span> <span class="f">main</span><span class="p">()</span> <span class="p">-></span> <span class="k">None</span><span class="p">:</span>
+    <span class="c"># ─── THREAD POOL ───────────────────────────────────────────────────────</span>
+    <span class="k">with</span> <span class="v">concurrent</span><span class="p">.</span><span class="v">futures</span><span class="p">.</span><span class="f">ThreadPoolExecutor</span><span class="p">(</span>max_workers<span class="p">=</span><span class="n">100</span><span class="p">)</span> <span class="k">as</span> <span class="v">executor</span><span class="p">:</span>
+        <span class="cm"># max_workers=100: up to 100 threads can run simultaneously</span>
+        <span class="cm"># 'with' block: threads are cleaned up automatically on exit</span>
+
+        <span class="v">futures</span> <span class="p">=</span> <span class="p">[</span>
+            <span class="v">executor</span><span class="p">.</span><span class="f">submit</span><span class="p">(</span><span class="f">run_agent</span><span class="p">,</span> i<span class="p">)</span>
+            <span class="k">for</span> i <span class="k">in</span> <span class="f">range</span><span class="p">(</span><span class="n">100</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="cm"># executor.submit(fn, arg) → schedules fn(arg) on a thread</span>
+        <span class="cm"># returns a Future object immediately (non-blocking)</span>
+        <span class="cm"># ALL 100 tasks are now queued/running concurrently</span>
+
+        <span class="v">results</span> <span class="p">=</span> <span class="p">[</span>
+            <span class="v">future</span><span class="p">.</span><span class="f">result</span><span class="p">()</span>
+            <span class="k">for</span> <span class="v">future</span> <span class="k">in</span> <span class="v">concurrent</span><span class="p">.</span><span class="v">futures</span><span class="p">.</span><span class="f">as_completed</span><span class="p">(</span><span class="v">futures</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="cm"># as_completed() → yields futures AS THEY FINISH (not in submission order!)</span>
+        <span class="cm"># future.result() → blocks until that one future is done, then returns value</span>
+        <span class="cm"># ⚠️ results list will be in COMPLETION ORDER, not original order!</span>
+        <span class="cm">#    Use zip(futures, results) or dict if order matters.</span>
+
+    <span class="f">print</span><span class="p">(</span><span class="v">results</span><span class="p">)</span>
+
+<span class="v">start_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="f">main</span><span class="p">()</span>
+<span class="v">end_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+<span class="f">print</span><span class="p">(</span><span class="s">f"Time taken(Multi threading): {end_time - start_time:.2f} seconds"</span><span class="p">)</span>
+</pre>
+  </div>
+
+  <div class="info-grid" style="margin-top:16px">
+    <div class="ibox good"><h4>✅ Strengths</h4><ul>
+      <li>Works with synchronous (non-async) code — no refactoring needed</li>
+      <li>GIL is released during I/O, so threads truly run in parallel for network calls</li>
+      <li>Good when using non-async SDKs or legacy code</li>
+    </ul></div>
+    <div class="ibox warn"><h4>⚠️ Watch Out</h4><ul>
+      <li><code>as_completed()</code> returns in finish order — not submission order</li>
+      <li>100 threads = high OS overhead; consider capping at 10–20 for most APIs</li>
+      <li>Thread safety: agent's internal state must be safe to share</li>
+      <li>Memory: each thread has its own stack (~1MB default on Linux)</li>
+    </ul></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════ USE CASES ═══════════════════════════ -->
+<section id="usecases">
+  <div class="sec-label">Section 03</div>
+  <div class="sec-title">🌍 Real-World Use Cases</div>
+
+  <div class="uc-grid">
+    <div class="uc-card sync">
+      <span class="uc-tag">🔴 Sync</span>
+      <h4>Simple CLI Tools</h4>
+      <p>A command-line script that translates a document — one paragraph at a time, ordered output matters, no concurrent infra needed.</p>
+    </div>
+    <div class="uc-card sync">
+      <span class="uc-tag">🔴 Sync</span>
+      <h4>Pipeline Step</h4>
+      <p>ETL pipeline where each LLM step feeds data into the next. Order & correctness matter more than speed.</p>
+    </div>
+    <div class="uc-card async-b">
+      <span class="uc-tag">🟢 Async Batch</span>
+      <h4>Bulk Classification</h4>
+      <p>Classify 1000 customer support tickets by category. Fire all at once with gather(), collect results in seconds.</p>
+    </div>
+    <div class="uc-card async-b">
+      <span class="uc-tag">🟢 Async Batch</span>
+      <h4>Multi-Agent Pipelines</h4>
+      <p>Run multiple specialized agents (summarizer, critic, formatter) in parallel on the same document, then combine outputs.</p>
+    </div>
+    <div class="uc-card async-b">
+      <span class="uc-tag">🟢 Async Batch</span>
+      <h4>FastAPI Endpoints</h4>
+      <p>Handle many simultaneous HTTP requests in an async web server — each request awaits the LLM without blocking others.</p>
+    </div>
+    <div class="uc-card mt">
+      <span class="uc-tag">🔵 Multithreading</span>
+      <h4>Legacy Code Integration</h4>
+      <p>Adding LLM capabilities to a synchronous Django app or Celery worker without rewriting everything as async.</p>
+    </div>
+    <div class="uc-card mt">
+      <span class="uc-tag">🔵 Multithreading</span>
+      <h4>Stress Testing</h4>
+      <p>Simulating 100 concurrent users hitting your LLM endpoint. ThreadPool makes it easy to model real concurrency.</p>
+    </div>
+    <div class="uc-card purple">
+      <span class="uc-tag">🔮 Combined</span>
+      <h4>Agentic Workflows</h4>
+      <p>Outer async gather() for independent tasks; inner sync calls for tools that require sequential reasoning steps.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ GOTCHAS ═══════════════════════════ -->
+<section id="gotchas">
+  <div class="sec-label">Section 04</div>
+  <div class="sec-title">⚠️ Gotchas & Best Practices</div>
+
+  <table class="gotcha-table">
+    <thead>
+      <tr><th></th><th>Topic</th><th>Gotcha / Mistake</th><th>Best Practice</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="gg">🔴</span></td>
+        <td class="topic">Async misconception</td>
+        <td style="color:#94a3b8"><code>async def</code> + <code>await</code> in a for-loop is still sequential</td>
+        <td style="color:#94a3b8">Use <code>asyncio.gather()</code> or <code>asyncio.create_task()</code> for true concurrency</td>
+      </tr>
+      <tr>
+        <td><span class="gg">🟡</span></td>
+        <td class="topic">Result ordering</td>
+        <td style="color:#94a3b8"><code>as_completed()</code> returns futures in finish order, not submission order</td>
+        <td style="color:#94a3b8">Use <code>gather()</code> if order matters, or map futures to original indices</td>
+      </tr>
+      <tr>
+        <td><span class="gg">🟢</span></td>
+        <td class="topic">Error propagation</td>
+        <td style="color:#94a3b8"><code>gather()</code> raises on first exception by default, cancelling others</td>
+        <td style="color:#94a3b8">Use <code>asyncio.gather(*tasks, return_exceptions=True)</code> for fault tolerance</td>
+      </tr>
+      <tr>
+        <td><span class="gg">🔵</span></td>
+        <td class="topic">Thread count</td>
+        <td style="color:#94a3b8"><code>max_workers=100</code> threads is often overkill — high memory + OS overhead</td>
+        <td style="color:#94a3b8">Start with 10–20 threads; scale based on profiling, not guessing</td>
+      </tr>
+      <tr>
+        <td><span class="gg">🔶</span></td>
+        <td class="topic">Rate limits</td>
+        <td style="color:#94a3b8">Firing 100 concurrent requests will hit API rate limits on OpenAI / Anthropic</td>
+        <td style="color:#94a3b8">Use <code>asyncio.Semaphore(10)</code> to cap concurrent requests; add retry with backoff</td>
+      </tr>
+      <tr>
+        <td><span class="gg">🟣</span></td>
+        <td class="topic">GIL & CPU work</td>
+        <td style="color:#94a3b8">Threading doesn't help CPU-bound Python code — GIL blocks parallel execution</td>
+        <td style="color:#94a3b8">For CPU-heavy tasks, use <code>ProcessPoolExecutor</code> or offload to compiled code</td>
+      </tr>
+      <tr>
+        <td><span class="gg">⚪</span></td>
+        <td class="topic">override=True</td>
+        <td style="color:#94a3b8">Forgetting <code>override=True</code> means shell env vars silently shadow .env values</td>
+        <td style="color:#94a3b8">Always use <code>load_dotenv(override=True)</code> in dev; use real secrets manager in prod</td>
+      </tr>
+      <tr>
+        <td><span class="gg">🔐</span></td>
+        <td class="topic">Thread safety</td>
+        <td style="color:#94a3b8">Sharing mutable state across threads leads to race conditions</td>
+        <td style="color:#94a3b8">Keep agent calls stateless; use locks (<code>threading.Lock</code>) if shared state is unavoidable</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════ CHEATSHEET ═══════════════════════════ -->
+<div class="cheatsheet">
+  <h3>🗂 Quick Decision Cheatsheet</h3>
+  <div class="cs-grid">
+    <div class="cs-item sync">
+      <div class="cs-head">🔴 Use Sync When</div>
+      <div class="cs-val">Small number of calls · Order matters · Debugging · Non-async codebase · Simple scripts</div>
+    </div>
+    <div class="cs-item async-s">
+      <div class="cs-head">🟡 Avoid Async Sequential When</div>
+      <div class="cs-val">You have >5 calls · You want speed · You're already using async — use gather() instead</div>
+    </div>
+    <div class="cs-item async-b">
+      <div class="cs-head">🟢 Use Async + Gather When</div>
+      <div class="cs-val">Many I/O-bound calls · FastAPI/async web server · Batch LLM jobs · Multi-agent parallelism</div>
+    </div>
+    <div class="cs-item mt">
+      <div class="cs-head">🔵 Use Threads When</div>
+      <div class="cs-val">Sync SDK only · Legacy integration · load testing · Mixed sync+async codebase</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<div class="footer">
+  🤖 GenAI Mentor · Reverse Engineered with ❤️ · PydanticAI + asyncio + concurrent.futures
+</div>
+
+</body>
+</html>

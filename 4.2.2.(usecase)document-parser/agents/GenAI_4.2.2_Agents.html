@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Agents Explained — GenAI Mentor</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#07080f;--surface:#0f1019;--card:#14151f;--border:#22243a;
+  --pink:#ff6eb4;--yellow:#ffd166;--green:#06d6a0;--blue:#4dabf7;
+  --purple:#b197fc;--orange:#ff9f43;--cyan:#22d3ee;--red:#ff6b6b;
+  --text:#e8eaf6;--muted:#5c6080;--code-bg:#0b0c15;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;font-size:15px;line-height:1.75;overflow-x:hidden}
+
+/* NOISE */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.35}
+
+/* HERO */
+.hero{padding:70px 32px 50px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(177,151,252,.1),transparent 65%)}
+.tag{display:inline-block;background:rgba(177,151,252,.12);border:1px solid rgba(177,151,252,.3);color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;padding:5px 16px;border-radius:4px;margin-bottom:22px;text-transform:uppercase}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .sub{font-size:1.05rem;color:var(--muted);max-width:580px;margin:0 auto 36px;font-weight:600}
+.hero .kids-note{display:inline-flex;align-items:center;gap:10px;background:rgba(6,214,160,.07);border:1px dashed rgba(6,214,160,.3);border-radius:12px;padding:10px 20px;color:var(--green);font-size:.9rem;font-weight:700;margin-bottom:40px}
+
+/* TOC */
+.toc{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:50px}
+.toc a{text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);padding:6px 14px;border:1px solid var(--border);border-radius:30px;transition:all .2s}
+.toc a:hover{color:var(--text);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.04)}
+
+/* CONTAINER */
+.container{max-width:1100px;margin:0 auto;padding:0 32px}
+
+/* SECTION LABELS */
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.sec-title{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,3vw,2.2rem);font-weight:800;margin-bottom:36px;line-height:1.2}
+
+/* CONCEPT CARDS */
+.concepts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin-bottom:70px}
+.ccard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.ccard:hover{transform:translateY(-4px)}
+.ccard::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
+.ccard.pink::after  {background:var(--pink)}
+.ccard.yellow::after{background:var(--yellow)}
+.ccard.green::after {background:var(--green)}
+.ccard.blue::after  {background:var(--blue)}
+.ccard.purple::after{background:var(--purple)}
+.ccard.orange::after{background:var(--orange)}
+.ccard.cyan::after  {background:var(--cyan)}
+.ccard.red::after   {background:var(--red)}
+.ccard:hover.pink  {border-color:var(--pink)}
+.ccard:hover.yellow{border-color:var(--yellow)}
+.ccard:hover.green {border-color:var(--green)}
+.ccard:hover.blue  {border-color:var(--blue)}
+.ccard:hover.purple{border-color:var(--purple)}
+.ccard:hover.orange{border-color:var(--orange)}
+.ccard:hover.cyan  {border-color:var(--cyan)}
+.ccard:hover.red   {border-color:var(--red)}
+.ccard-icon{font-size:2.2rem;margin-bottom:14px}
+.ccard h3{font-size:1.05rem;font-weight:800;margin-bottom:8px}
+.ccard p{font-size:.87rem;color:#94a3b8;line-height:1.7}
+.ccard code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#c8d6f0}
+.ccard .kid-box{margin-top:12px;background:rgba(255,255,255,.04);border-left:3px solid;border-radius:0 8px 8px 0;padding:10px 12px;font-size:.82rem;color:#94a3b8}
+.ccard.pink .kid-box  {border-color:var(--pink)}
+.ccard.yellow .kid-box{border-color:var(--yellow)}
+.ccard.green .kid-box {border-color:var(--green)}
+.ccard.blue .kid-box  {border-color:var(--blue)}
+.ccard.purple .kid-box{border-color:var(--purple)}
+.ccard.orange .kid-box{border-color:var(--orange)}
+.ccard.cyan .kid-box  {border-color:var(--cyan)}
+.ccard.red .kid-box   {border-color:var(--red)}
+
+/* FLOW DIAGRAM */
+.flow-wrap{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:36px;margin-bottom:70px}
+.flow-title{font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:800;margin-bottom:28px;text-align:center}
+.flow{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0}
+.flow-step{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-width:100px;max-width:130px}
+.flow-box{padding:12px 16px;border-radius:12px;font-size:.78rem;font-weight:700;line-height:1.3;border:2px solid}
+.flow-box.pdf  {background:rgba(255,107,107,.1);border-color:var(--red);color:var(--red)}
+.flow-box.jpg  {background:rgba(255,159,67,.1);border-color:var(--orange);color:var(--orange)}
+.flow-box.agent{background:rgba(177,151,252,.1);border-color:var(--purple);color:var(--purple)}
+.flow-box.class{background:rgba(255,209,102,.1);border-color:var(--yellow);color:var(--yellow)}
+.flow-box.extrc{background:rgba(6,214,160,.1);border-color:var(--green);color:var(--green)}
+.flow-box.out  {background:rgba(77,171,247,.1);border-color:var(--blue);color:var(--blue)}
+.flow-box.json {background:rgba(34,211,238,.1);border-color:var(--cyan);color:var(--cyan)}
+.flow-arrow{font-size:1.5rem;color:var(--muted);padding:0 4px;flex-shrink:0}
+.flow-label{font-size:.7rem;color:var(--muted);font-weight:600}
+
+/* CODE */
+.file-section{margin-bottom:64px}
+.file-header{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.file-pill{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 14px;border-radius:20px;font-weight:800}
+.file-pill.generic{background:rgba(177,151,252,.15);color:var(--purple)}
+.file-pill.custom {background:rgba(6,214,160,.15);color:var(--green)}
+.file-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
+.file-desc{font-size:.9rem;color:#94a3b8;margin-bottom:16px;font-weight:600}
+.code-wrap{background:var(--code-bg);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.code-toolbar{background:#0f1019;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:8px}
+.d-r{width:11px;height:11px;border-radius:50%;background:#ff5f57}
+.d-y{width:11px;height:11px;border-radius:50%;background:#febc2e}
+.d-g{width:11px;height:11px;border-radius:50%;background:#28c840}
+.code-fn{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-left:auto}
+pre{padding:26px 28px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:2;tab-size:4}
+.k {color:#b197fc}
+.f {color:#74c7ec}
+.s {color:#a6e3a1}
+.cm{color:#22d3ee;font-style:italic;font-weight:700}
+.c {color:#3d4060;font-style:italic}
+.n {color:#fab387}
+.m {color:#f38ba8}
+.v {color:#cdd6f4}
+.p {color:#6c7086}
+.t {color:#ffd166}
+.dec{color:#ff9f43}
+
+/* INFO BOXES */
+.ibox-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-top:16px;margin-bottom:20px}
+.ibox{border-radius:12px;padding:18px 20px;border:1px solid}
+.ibox.warn  {background:rgba(255,159,67,.05);border-color:rgba(255,159,67,.2)}
+.ibox.good  {background:rgba(6,214,160,.05); border-color:rgba(6,214,160,.2)}
+.ibox.info  {background:rgba(77,171,247,.05);border-color:rgba(77,171,247,.2)}
+.ibox.purple{background:rgba(177,151,252,.05);border-color:rgba(177,151,252,.2)}
+.ibox h4{font-size:.92rem;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ibox.warn h4  {color:var(--orange)}
+.ibox.good h4  {color:var(--green)}
+.ibox.info h4  {color:var(--blue)}
+.ibox.purple h4{color:var(--purple)}
+.ibox ul{list-style:none;padding:0}
+.ibox ul li{font-size:.82rem;color:#94a3b8;padding:3px 0;display:flex;gap:8px}
+.ibox ul li::before{content:'▸';flex-shrink:0;color:inherit;opacity:.7}
+
+/* COMPARISON TABLE */
+.comp-table{width:100%;border-collapse:collapse;margin-bottom:60px;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+.comp-table th{background:#0f1019;padding:14px 18px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted)}
+.comp-table td{padding:14px 18px;border-top:1px solid var(--border);font-size:.85rem;vertical-align:top}
+.comp-table tr:hover td{background:rgba(255,255,255,.02)}
+.badge-g{display:inline-block;background:rgba(177,151,252,.15);color:var(--purple);padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:800;font-family:'JetBrains Mono',monospace}
+.badge-c{display:inline-block;background:rgba(6,214,160,.15);color:var(--green);padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:800;font-family:'JetBrains Mono',monospace}
+
+/* GOTCHAS */
+.gotcha-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:70px}
+.gcrd{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;border-left:4px solid}
+.gcrd.w{border-left-color:var(--orange)}
+.gcrd.g{border-left-color:var(--green)}
+.gcrd.b{border-left-color:var(--blue)}
+.gcrd.p{border-left-color:var(--purple)}
+.gcrd.r{border-left-color:var(--red)}
+.gcrd h4{font-size:.95rem;font-weight:800;margin-bottom:8px;display:flex;gap:8px;align-items:center}
+.gcrd.w h4{color:var(--orange)}
+.gcrd.g h4{color:var(--green)}
+.gcrd.b h4{color:var(--blue)}
+.gcrd.p h4{color:var(--purple)}
+.gcrd.r h4{color:var(--red)}
+.gcrd p{font-size:.83rem;color:#94a3b8}
+.gcrd code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+/* USECASES */
+.uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:70px}
+.ucrd{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;transition:transform .2s}
+.ucrd:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.1)}
+.ucrd .uc-tag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:block;font-weight:800}
+.ucrd h4{font-size:1rem;font-weight:800;margin-bottom:8px}
+.ucrd p{font-size:.82rem;color:#94a3b8}
+
+/* DIVIDER */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:56px 0}
+
+/* BIG QUOTE */
+.big-quote{background:linear-gradient(135deg,rgba(255,110,180,.06),rgba(177,151,252,.06));border:1px solid rgba(255,110,180,.2);border-radius:16px;padding:28px 36px;margin-bottom:60px;text-align:center}
+.big-quote p{font-size:1.2rem;font-weight:700;color:var(--pink);line-height:1.6}
+.big-quote span{font-size:.9rem;color:var(--muted);font-weight:600}
+
+/* CHEATSHEET */
+.cheatsheet{background:linear-gradient(135deg,rgba(6,214,160,.06),rgba(77,171,247,.06));border:1px solid rgba(6,214,160,.2);border-radius:16px;padding:32px;margin-bottom:60px}
+.cheatsheet h3{font-family:'Syne',sans-serif;font-size:1.2rem;color:var(--green);margin-bottom:22px}
+.cs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.cs-item{background:rgba(0,0,0,.3);border-radius:10px;padding:16px}
+.cs-head{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:800}
+.cs-val{font-size:.82rem;color:#94a3b8;line-height:1.6}
+
+/* FOOTER */
+footer{text-align:center;padding:40px;color:var(--muted);font-size:.78rem;font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
+
+/* step-by-step */
+.steps{counter-reset:step;display:flex;flex-direction:column;gap:10px;margin-bottom:40px}
+.step{display:flex;gap:16px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+.step-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;flex-shrink:0;margin-top:2px}
+.step-num.pink  {background:rgba(255,110,180,.15);color:var(--pink)}
+.step-num.yellow{background:rgba(255,209,102,.15);color:var(--yellow)}
+.step-num.green {background:rgba(6,214,160,.15);  color:var(--green)}
+.step-num.blue  {background:rgba(77,171,247,.15);  color:var(--blue)}
+.step-num.purple{background:rgba(177,151,252,.15); color:var(--purple)}
+.step-num.orange{background:rgba(255,159,67,.15);  color:var(--orange)}
+.step-body h4{font-size:.95rem;font-weight:800;margin-bottom:4px}
+.step-body p{font-size:.85rem;color:#94a3b8}
+.step-body code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#c8d6f0}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="tag">🤖 GenAI Mentor · Deep Dive #2</div>
+  <h1>AI Document Agents<br/>Fully Explained</h1>
+  <p class="sub">agents_generic.py &amp; agents_custom.py — two smart pipelines that read documents using AI</p>
+  <div class="kids-note">🧒 Explained like you're 13 — no fluff, just crystal-clear analogies &amp; deep dives</div>
+
+  <nav class="toc">
+    <a href="#bigpicture">🗺 Big Picture</a>
+    <a href="#concepts">🧠 Concepts</a>
+    <a href="#flow">🔀 Flow Diagram</a>
+    <a href="#generic">📄 Generic Agent</a>
+    <a href="#custom">🎯 Custom Agent</a>
+    <a href="#compare">⚖️ Comparison</a>
+    <a href="#usecases">🌍 Use Cases</a>
+    <a href="#gotchas">⚠️ Gotchas</a>
+  </nav>
+</div>
+
+<div class="container">
+
+<!-- ══ BIG PICTURE ══ -->
+<section id="bigpicture">
+  <div class="sec-label">Before Anything Else</div>
+  <div class="sec-title">🗺 What Is This Code Actually Doing?</div>
+
+  <div class="big-quote">
+    <p>📄 "Here's a PDF of my invoice. Read it and give me<br/>the vendor name, amount, and date — in JSON."</p>
+    <span>That's literally what this code does. But with AI instead of a human reading it.</span>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num pink">1</div>
+      <div class="step-body">
+        <h4>📂 Find all PDF files in a folder</h4>
+        <p><code>list_all_files(pdf_dir)</code> scans a folder and returns a list of PDF file paths.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num yellow">2</div>
+      <div class="step-body">
+        <h4>🖼 Convert each PDF page to a JPG image</h4>
+        <p><code>pdf_to_jpg()</code> renders each page of a PDF into a JPEG image. AI vision models understand images, not raw PDF bytes.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num green">3</div>
+      <div class="step-body">
+        <h4>🤖 Send each image to GPT-4o / GPT-4.1 via API</h4>
+        <p>The AI "looks" at the image and extracts information. It's like hiring an AI intern to read documents for you.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num blue">4</div>
+      <div class="step-body">
+        <h4>📋 Get back structured data (not just a chatbot reply)</h4>
+        <p>Instead of "Here is the invoice data: ...", you get a proper Python object with fields like <code>vendor_name</code>, <code>total_amount</code>, <code>date</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num purple">5</div>
+      <div class="step-body">
+        <h4>💾 Save results as JSON files</h4>
+        <p><code>save_results_to_json()</code> writes extracted data neatly into a JSON file for downstream use.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ CONCEPTS ══ -->
+<section id="concepts">
+  <div class="sec-label">Section 01</div>
+  <div class="sec-title">🧠 Core Concepts — Explained Simply</div>
+
+  <div class="concepts-grid">
+
+    <div class="ccard pink">
+      <div class="ccard-icon">📦</div>
+      <h3>Pydantic BaseModel</h3>
+      <p>A <strong>Pydantic model</strong> is like a form with labelled fields. You define what fields exist and what type of data goes in them. If the data doesn't match the type, Pydantic throws an error.</p>
+      <div class="kid-box">🧒 <strong>Think of it like:</strong> a school registration form. It has fields for "Name" (text), "Age" (number), "Class" (text). If you write "ABC" in the Age field — it's rejected!</div>
+    </div>
+
+    <div class="ccard yellow">
+      <div class="ccard-icon">🎯</div>
+      <h3>output_type in PydanticAI Agent</h3>
+      <p>When you set <code>output_type=ModelAnalysisOutput</code>, you're telling the AI: <em>"Don't return a free-text reply. Return data that exactly matches this Pydantic shape."</em> PydanticAI automatically validates and parses the response.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> asking your friend to fill out a form instead of texting you a paragraph. You get organised data, not a wall of text.</div>
+    </div>
+
+    <div class="ccard green">
+      <div class="ccard-icon">🖼</div>
+      <h3>BinaryContent (Vision Input)</h3>
+      <p><code>BinaryContent(data=image_path.read_bytes(), media_type="image/jpeg")</code> reads an image file from disk and sends the raw bytes to the AI model along with a text instruction. This is how AI "sees" an image.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> emailing a photo to someone with the note "please describe what's in this image." The photo is <code>BinaryContent</code>; the note is the text prompt.</div>
+    </div>
+
+    <div class="ccard blue">
+      <div class="ccard-icon">🔗</div>
+      <h3>message_parts (Multimodal Prompt)</h3>
+      <p>Instead of sending just text, you send a <strong>list</strong> containing both a text string and binary image data. This is a <em>multimodal</em> prompt — mixing multiple types of input in one message.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> showing a photo + asking a question at the same time, instead of just texting words. The AI sees both.</div>
+    </div>
+
+    <div class="ccard purple">
+      <div class="ccard-icon">🕵️</div>
+      <h3>Two-Agent Pipeline (Classify → Extract)</h3>
+      <p>In <code>agents_custom.py</code>, two agents work in sequence:<br/>1️⃣ <strong>Classifier Agent</strong> looks at the document and decides: "This is an invoice."<br/>2️⃣ <strong>Extractor Agent</strong> now knows the type and uses the right schema to extract data.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> two workers. Worker 1 sorts mail into boxes (invoice/payslip/license). Worker 2 opens each box and fills out the matching form.</div>
+    </div>
+
+    <div class="ccard orange">
+      <div class="ccard-icon">🗺</div>
+      <h3>classification_to_schema (Dict Routing)</h3>
+      <p>A Python dictionary maps string labels to Pydantic classes:<br/><code>{"invoice": Invoice, "payslip": Payslip, ...}</code><br/>After classification, we do <code>.get(category)</code> to pick the right schema dynamically at runtime.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a menu board at a restaurant. You say "invoice", and you're handed the Invoice form. Say "payslip", you get the Payslip form.</div>
+    </div>
+
+    <div class="ccard cyan">
+      <div class="ccard-icon">🎭</div>
+      <h3>Union Type: Invoice | Payslip | DriversLicense</h3>
+      <p>This is Python type hinting syntax meaning "this variable can be <em>any one</em> of these three types." It tells both the programmer and the type checker that different document types are expected.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a gift box that could contain either a book, a toy, or a game. You don't know which until you open it — but it's always one of those three.</div>
+    </div>
+
+    <div class="ccard red">
+      <div class="ccard-icon">⚙️</div>
+      <h3>ModelSettings(temperature=0)</h3>
+      <p><code>temperature</code> controls how "creative" the AI is. <strong>0 = deterministic</strong>, always picks the most likely token. Perfect for extraction tasks where you want consistency, not creativity.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a calculator vs a poet. temperature=0 → calculator mode. temperature=1 → the AI gets creative and might say weird things.</div>
+    </div>
+
+    <div class="ccard pink">
+      <div class="ccard-icon">🌐</div>
+      <h3>GitHubProvider + OpenAIChatModel</h3>
+      <p>Instead of using OpenAI directly, this routes through <strong>GitHub's AI model API</strong>. GitHub provides access to models like GPT-4o via a proxy. The <code>GITHUB_API_KEY</code> is the credential.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> calling a restaurant through a third-party delivery app instead of directly. Same food (model), different middleman (provider).</div>
+    </div>
+
+    <div class="ccard green">
+      <div class="ccard-icon">⚡</div>
+      <h3>asyncio.gather() — Parallel Processing</h3>
+      <p>All pages are sent to the AI simultaneously instead of one-by-one. <code>gather(*tasks)</code> fires all coroutines at once, slashing total processing time.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> emailing all your classmates at once vs waiting for each one to reply before emailing the next. Way faster!</div>
+    </div>
+
+    <div class="ccard blue">
+      <div class="ccard-icon">🛡</div>
+      <h3>try / except + raise RuntimeError</h3>
+      <p>If the AI call fails for any reason (network error, model issue), the exception is caught, printed, and re-raised as a <code>RuntimeError</code>. This bubbles up cleanly to the caller instead of crashing silently.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> if your order fails at a restaurant, the waiter tells you instead of just disappearing. You know what went wrong.</div>
+    </div>
+
+    <div class="ccard yellow">
+      <div class="ccard-icon">📁</div>
+      <h3>Path (pathlib)</h3>
+      <p><code>Path</code> is the modern Python way to work with file paths. <code>Path(__file__).parent / "data1"</code> builds a path relative to the current script location — works on Windows, Mac &amp; Linux.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> "starting from this room, go to the room next door, then to the folder called data1" — platform-independent navigation.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ FLOW DIAGRAM ══ -->
+<section id="flow">
+  <div class="sec-label">Section 02</div>
+  <div class="sec-title">🔀 How agents_custom.py Flows — Step by Step</div>
+
+  <div class="flow-wrap">
+    <div class="flow-title">📄 PDF Input → Structured JSON Output</div>
+    <div class="flow" style="gap:4px 0">
+
+      <div class="flow-step">
+        <div class="flow-box pdf">📄 PDF File<br/>on Disk</div>
+        <div class="flow-label">Input</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box jpg">🖼 pdf_to_jpg()<br/>Each page<br/>→ JPEG</div>
+        <div class="flow-label">Conversion</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box agent">🔍 Classifier<br/>Agent<br/>(GPT-4.1)</div>
+        <div class="flow-label">Agent 1</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box class">🏷 DocumentCategory<br/>"invoice" /<br/>"payslip" /<br/>"driver_license"</div>
+        <div class="flow-label">Classification</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box class">📋 Pick Schema<br/>from dict<br/>Invoice /<br/>Payslip / DL</div>
+        <div class="flow-label">Routing</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box extrc">🤖 Extractor<br/>Agent<br/>+ schema</div>
+        <div class="flow-label">Agent 2</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box out">✅ Validated<br/>Pydantic<br/>Object</div>
+        <div class="flow-label">Typed Output</div>
+      </div>
+      <div class="flow-arrow">→</div>
+
+      <div class="flow-step">
+        <div class="flow-box json">💾 JSON<br/>File<br/>Saved</div>
+        <div class="flow-label">Result</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Generic flow -->
+  <div class="flow-wrap" style="margin-top:-30px">
+    <div class="flow-title">📋 agents_generic.py — Simpler, Single-Agent Flow</div>
+    <div class="flow" style="gap:4px 0">
+      <div class="flow-step">
+        <div class="flow-box pdf">📄 PDF File</div>
+        <div class="flow-label">Input</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box jpg">🖼 → JPEG<br/>pages</div>
+        <div class="flow-label">Convert</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box agent">🤖 One Agent<br/>(GPT-4o)<br/>OCR</div>
+        <div class="flow-label">Single Agent</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box extrc">📦 ModelAnalysis<br/>Output<br/>(any doc)</div>
+        <div class="flow-label">Generic Schema</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box json">💾 OCROutput<br/>(filename<br/>+ result)</div>
+        <div class="flow-label">Result</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ FILE: GENERIC ══ -->
+<section id="generic" class="file-section">
+  <div class="sec-label">File 1 of 2</div>
+  <div class="file-header">
+    <span class="file-pill generic">GENERIC AGENT</span>
+    <span class="file-name">agents_generic.py</span>
+  </div>
+  <p class="file-desc">One agent that handles ALL document types with a universal schema. Good for "give me everything you see" extraction.</p>
+
+  <div class="code-wrap">
+    <div class="code-toolbar"><div class="d-r"></div><div class="d-y"></div><div class="d-g"></div><span class="code-fn">agents_generic.py</span></div>
+    <pre><span class="c"># ═══ IMPORTS ══════════════════════════════════════════════════════════════</span>
+<span class="k">import</span> <span class="m">asyncio</span>                       <span class="cm"># ⚡ for gather() — run all pages in parallel</span>
+<span class="k">import</span> <span class="m">os</span>                            <span class="cm"># 🔑 to read GITHUB_API_KEY from environment</span>
+<span class="k">import</span> <span class="m">time</span>
+<span class="k">from</span> <span class="m">pathlib</span> <span class="k">import</span> <span class="f">Path</span>            <span class="cm"># 📁 cross-platform file path handling</span>
+<span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>      <span class="cm"># 🌿 load GITHUB_API_KEY from .env file</span>
+<span class="k">from</span> <span class="m">pydantic</span> <span class="k">import</span> <span class="f">BaseModel</span><span class="p">,</span> <span class="f">Field</span>  <span class="cm"># 📦 schema definition + field metadata</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span><span class="p">,</span> <span class="f">BinaryContent</span>  <span class="cm"># 🤖 agent + image bytes container</span>
+<span class="k">from</span> <span class="m">pydantic_ai.models.openai</span> <span class="k">import</span> <span class="f">OpenAIChatModel</span>   <span class="cm"># 🧠 OpenAI model wrapper</span>
+<span class="k">from</span> <span class="m">pydantic_ai.providers.github</span> <span class="k">import</span> <span class="f">GitHubProvider</span>  <span class="cm"># 🌐 routes through GitHub AI API</span>
+<span class="k">from</span> <span class="m">pydantic_ai.settings</span> <span class="k">import</span> <span class="f">ModelSettings</span>           <span class="cm"># ⚙️ temperature, max_tokens etc.</span>
+<span class="k">from</span> <span class="m">utils</span> <span class="k">import</span> <span class="f">list_all_files</span><span class="p">,</span> <span class="f">pdf_to_jpg</span><span class="p">,</span> <span class="f">save_results_to_json</span>  <span class="cm"># 🛠 helper functions</span>
+
+<span class="f">load_dotenv</span><span class="p">()</span>  <span class="cm"># reads .env → sets os.environ["GITHUB_API_KEY"]</span>
+
+
+<span class="c"># ═══ SCHEMA: FileElement ══════════════════════════════════════════════════</span>
+<span class="k">class</span> <span class="t">FileElement</span><span class="p">(</span><span class="f">BaseModel</span><span class="p">):</span>
+    <span class="cm">"""A single detected element on a page (table, paragraph, image, etc.)"""</span>
+    element_type<span class="p">:</span> <span class="t">str</span> <span class="p">=</span> <span class="f">Field</span><span class="p">(</span>
+        description<span class="p">=</span><span class="s">"Type of the element found on the page"</span><span class="p">,</span>
+        default<span class="p">=</span><span class="s">""</span>
+    <span class="p">)</span>
+    element_content<span class="p">:</span> <span class="t">str</span> <span class="p">=</span> <span class="f">Field</span><span class="p">(</span>
+        description<span class="p">=</span><span class="s">"Content of the element found on the page"</span><span class="p">,</span>
+        default<span class="p">=</span><span class="s">""</span>
+    <span class="p">)</span>
+    <span class="cm"># ☝️ Field(description=...) tells the LLM what each field means.
+    #    PydanticAI includes these descriptions in the JSON schema sent to the model.
+    #    Better descriptions → more accurate extraction!</span>
+
+
+<span class="c"># ═══ SCHEMA: ModelAnalysisOutput — THE MAIN OUTPUT SHAPE ═════════════════</span>
+<span class="k">class</span> <span class="t">ModelAnalysisOutput</span><span class="p">(</span><span class="f">BaseModel</span><span class="p">):</span>
+    <span class="cm">"""What the LLM must return — PydanticAI enforces this structure."""</span>
+
+    file_type<span class="p">:</span> <span class="t">str</span> <span class="p">=</span> <span class="f">Field</span><span class="p">(</span>
+        description<span class="p">=</span><span class="s">"Type name: invoice, internal_document, instruction, other"</span><span class="p">,</span>
+        default<span class="p">=</span><span class="s">""</span>
+    <span class="p">)</span>
+    file_content_md<span class="p">:</span> <span class="t">str</span> <span class="p">=</span> <span class="f">Field</span><span class="p">(</span>
+        description<span class="p">=</span><span class="s">"OCR output: full contents of the page in Markdown"</span><span class="p">,</span>
+        default<span class="p">=</span><span class="s">""</span>
+    <span class="p">)</span>
+    file_elements<span class="p">:</span> <span class="t">list</span><span class="p">[</span><span class="t">FileElement</span><span class="p">]</span> <span class="p">=</span> <span class="f">Field</span><span class="p">(</span>
+        description<span class="p">=</span><span class="s">"List of detected elements: tables, paragraphs, images..."</span><span class="p">,</span>
+        default_factory<span class="p">=</span><span class="f">list</span>  <span class="cm"># ← default_factory=list means default is [] not None</span>
+    <span class="p">)</span>
+    <span class="cm"># ☝️ list[FileElement] = a list where each item must be a FileElement object.
+    #    Nested Pydantic models! The LLM returns a JSON array and it's auto-validated.</span>
+
+
+<span class="c"># ═══ SCHEMA: OCROutput — WRAPS FILENAME + RESULT ═════════════════════════</span>
+<span class="k">class</span> <span class="t">OCROutput</span><span class="p">(</span><span class="f">BaseModel</span><span class="p">):</span>
+    <span class="cm">"""Final output: which file + what was extracted from it."""</span>
+    filename<span class="p">:</span> <span class="t">str</span> <span class="p">=</span> <span class="s">""</span>
+    analysis_result<span class="p">:</span> <span class="t">ModelAnalysisOutput</span> <span class="p">=</span> <span class="f">Field</span><span class="p">(</span>default_factory<span class="p">=</span><span class="t">ModelAnalysisOutput</span><span class="p">)</span>
+    <span class="c"># This is NOT sent to the LLM — it's assembled by us after the AI responds.</span>
+
+
+<span class="c"># ═══ MODEL + AGENT SETUP ═════════════════════════════════════════════════</span>
+<span class="v">model</span> <span class="p">=</span> <span class="f">OpenAIChatModel</span><span class="p">(</span>
+    <span class="s">"openai/gpt-4o"</span><span class="p">,</span>                      <span class="cm"># 📌 model identifier (GPT-4o with vision)</span>
+    provider<span class="p">=</span><span class="f">GitHubProvider</span><span class="p">(</span>
+        api_key<span class="p">=</span><span class="v">os</span><span class="p">.</span><span class="f">getenv</span><span class="p">(</span><span class="s">"GITHUB_API_KEY"</span><span class="p">)</span>  <span class="cm"># 🔑 from .env file — never hardcode keys!</span>
+    <span class="p">),</span>
+    settings<span class="p">=</span><span class="f">ModelSettings</span><span class="p">(</span>temperature<span class="p">=</span><span class="n">0</span><span class="p">)</span>   <span class="cm"># 🎯 temperature=0 → deterministic, no creativity</span>
+<span class="p">)</span>
+
+<span class="v">agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    model<span class="p">=</span><span class="v">model</span><span class="p">,</span>
+    instructions<span class="p">=</span><span class="s">"You are an OCR expert specialized in data extraction..."</span><span class="p">,</span>
+    output_type<span class="p">=</span><span class="t">ModelAnalysisOutput</span><span class="p">,</span>     <span class="cm"># 🔒 LLM MUST return data matching this schema</span>
+<span class="p">)</span>
+<span class="cm"># ☝️ output_type is the magic:
+#    PydanticAI wraps your schema as JSON Schema, sends it with the request,
+#    and validates the model's response. If invalid → it retries automatically!</span>
+
+
+<span class="c"># ═══ run_inference: process ONE image page ════════════════════════════════</span>
+<span class="k">async def</span> <span class="f">run_inference</span><span class="p">(</span>image_path<span class="p">:</span> <span class="t">Path</span><span class="p">)</span> <span class="p">-></span> <span class="t">OCROutput</span><span class="p">:</span>
+    message_parts <span class="p">=</span> <span class="p">[</span>
+        <span class="s">"Extract the structure from the provided document."</span><span class="p">,</span>  <span class="cm"># 📝 text instruction</span>
+        <span class="f">BinaryContent</span><span class="p">(</span>
+            data<span class="p">=</span>image_path<span class="p">.</span><span class="f">read_bytes</span><span class="p">(),</span>   <span class="cm"># 📸 read the image file as raw bytes</span>
+            media_type<span class="p">=</span><span class="s">"image/jpeg"</span>          <span class="cm"># 📌 tell the model: this is a JPEG image</span>
+        <span class="p">)</span>
+    <span class="p">]</span>
+    <span class="cm"># ☝️ message_parts is a LIST = multimodal prompt.
+    #    Index 0: text string — the instruction
+    #    Index 1: BinaryContent — the image data
+    #    The model receives BOTH simultaneously and processes them together.</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="v">analysis_result</span> <span class="p">=</span> <span class="k">await</span> <span class="v">agent</span><span class="p">.</span><span class="f">run</span><span class="p">(</span>message_parts<span class="p">)</span>
+        <span class="cm"># ☝️ agent.run() is async. The event loop pauses here while the API responds.
+        #    Other pages can be processed while this one waits for the API!</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"File analyzed: {image_path.stem}"</span><span class="p">)</span>  <span class="cm"># .stem = filename without extension</span>
+    <span class="k">except</span> <span class="t">Exception</span> <span class="k">as</span> e<span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"Unexpected error while inference: {e}"</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="f">RuntimeError</span> <span class="k">from</span> e  <span class="cm"># wrap and re-raise — caller knows something failed</span>
+
+    <span class="v">output</span> <span class="p">=</span> <span class="t">OCROutput</span><span class="p">(</span>
+        filename<span class="p">=</span>image_path<span class="p">.</span>stem<span class="p">,</span>
+        analysis_result<span class="p">=</span>analysis_result<span class="p">.</span>output  <span class="cm"># .output = the validated Pydantic object</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="v">output</span>
+
+
+<span class="c"># ═══ analyze_each_page: process ALL pages in parallel ════════════════════</span>
+<span class="k">async def</span> <span class="f">analyze_each_page</span><span class="p">(</span>image_paths<span class="p">:</span> <span class="t">list</span><span class="p">[</span><span class="t">Path</span><span class="p">])</span> <span class="p">-></span> <span class="t">list</span><span class="p">[</span><span class="t">OCROutput</span><span class="p">]:</span>
+    <span class="v">tasks</span> <span class="p">=</span> <span class="p">[</span><span class="f">run_inference</span><span class="p">(</span>path<span class="p">)</span> <span class="k">for</span> path <span class="k">in</span> image_paths<span class="p">]</span>
+    <span class="cm"># ☝️ list comprehension builds coroutine objects — NOT started yet!
+    #    Like preparing 10 envelopes before posting them all at once.</span>
+
+    <span class="v">results_objects</span> <span class="p">=</span> <span class="k">await</span> <span class="v">asyncio</span><span class="p">.</span><span class="f">gather</span><span class="p">(</span><span class="p">*</span><span class="v">tasks</span><span class="p">)</span>
+    <span class="cm"># ☝️ gather(*tasks) fires ALL coroutines simultaneously!
+    #    If you have 20 pages → 20 API calls fly out at once.
+    #    Total time ≈ slowest single page, not sum of all pages.</span>
+
+    <span class="k">return</span> <span class="v">results_objects</span>
+</pre>
+  </div>
+</section>
+
+<!-- ══ FILE: CUSTOM ══ -->
+<section id="custom" class="file-section">
+  <div class="sec-label">File 2 of 2</div>
+  <div class="file-header">
+    <span class="file-pill custom">CUSTOM TWO-AGENT PIPELINE 🎯</span>
+    <span class="file-name">agents_custom.py</span>
+  </div>
+  <p class="file-desc">Two specialised agents working in sequence: Agent 1 classifies the document type → Agent 2 extracts data using the correct schema. Smarter but costs 2× API calls per page.</p>
+
+  <div class="code-wrap">
+    <div class="code-toolbar"><div class="d-r"></div><div class="d-y"></div><div class="d-g"></div><span class="code-fn">agents_custom.py</span></div>
+    <pre><span class="k">import</span> <span class="m">asyncio</span><span class="p">,</span> <span class="m">os</span><span class="p">,</span> <span class="m">time</span>
+<span class="k">from</span> <span class="m">pathlib</span> <span class="k">import</span> <span class="f">Path</span>
+<span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span><span class="p">,</span> <span class="f">BinaryContent</span>
+<span class="k">from</span> <span class="m">models.invoice</span> <span class="k">import</span> <span class="f">Invoice</span>           <span class="cm"># 📄 Pydantic schema for invoices</span>
+<span class="k">from</span> <span class="m">models.payslip</span> <span class="k">import</span> <span class="f">Payslip</span>           <span class="cm"># 💰 Pydantic schema for payslips</span>
+<span class="k">from</span> <span class="m">models.drivers_license</span> <span class="k">import</span> <span class="f">DriversLicense</span>  <span class="cm"># 🪪 Pydantic schema for DL</span>
+<span class="k">from</span> <span class="m">models.category</span> <span class="k">import</span> <span class="f">DocumentCategory</span>  <span class="cm"># 🏷 schema with .category field (string)</span>
+<span class="k">from</span> <span class="m">pydantic_ai.models.openai</span> <span class="k">import</span> <span class="f">OpenAIChatModel</span>
+<span class="k">from</span> <span class="m">pydantic_ai.providers.github</span> <span class="k">import</span> <span class="f">GitHubProvider</span>
+<span class="k">from</span> <span class="m">pydantic_ai.settings</span> <span class="k">import</span> <span class="f">ModelSettings</span>
+<span class="k">from</span> <span class="m">utils</span> <span class="k">import</span> <span class="f">list_all_files</span><span class="p">,</span> <span class="f">pdf_to_jpg</span><span class="p">,</span> <span class="f">save_results_to_json</span>
+
+<span class="f">load_dotenv</span><span class="p">(</span>override<span class="p">=</span><span class="k">True</span><span class="p">)</span>  <span class="cm"># override=True: .env values beat any existing shell variables</span>
+
+
+<span class="c"># ═══ MODEL (GPT-4.1 — newer, faster than 4o) ══════════════════════════════</span>
+<span class="v">model</span> <span class="p">=</span> <span class="f">OpenAIChatModel</span><span class="p">(</span>
+    <span class="s">"openai/gpt-4.1"</span><span class="p">,</span>                         <span class="cm"># 📌 note: gpt-4.1, not gpt-4o</span>
+    provider<span class="p">=</span><span class="f">GitHubProvider</span><span class="p">(</span>api_key<span class="p">=</span><span class="v">os</span><span class="p">.</span><span class="f">getenv</span><span class="p">(</span><span class="s">"GITHUB_API_KEY"</span><span class="p">)),</span>
+    settings<span class="p">=</span><span class="f">ModelSettings</span><span class="p">(</span>temperature<span class="p">=</span><span class="n">0</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<span class="c"># ═══ AGENT 1: CLASSIFIER ══════════════════════════════════════════════════</span>
+<span class="v">classifier_agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    model<span class="p">,</span>
+    instructions<span class="p">=</span><span class="s">"You are a helpful assistant."</span><span class="p">,</span>
+    output_type<span class="p">=</span><span class="t">DocumentCategory</span>  <span class="cm"># → must return {category: "invoice"/"payslip"/"driver_license"}</span>
+<span class="p">)</span>
+<span class="cm"># ☝️ classifier_agent's ONLY job: look at an image and say what type of document it is.
+#    It returns a DocumentCategory object, e.g.: DocumentCategory(category="invoice")</span>
+
+
+<span class="c"># ═══ AGENT 2: EXTRACTOR ═══════════════════════════════════════════════════</span>
+<span class="v">extraction_agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    model<span class="p">,</span>
+    instructions<span class="p">=</span><span class="s">"You are a helpful assistant."</span>
+    <span class="c"># ← NO output_type here! It's set dynamically at runtime per call.</span>
+<span class="p">)</span>
+<span class="cm"># ☝️ extraction_agent is "schema-less" by default.
+#    We inject the right output_type when we call agent.run(..., output_type=...)
+#    This is the KEY trick that makes the pipeline dynamic!</span>
+
+
+<span class="c"># ═══ ROUTING MAP: string label → Pydantic class ═══════════════════════════</span>
+<span class="v">classification_to_schema</span> <span class="p">= {</span>
+    <span class="s">"invoice"</span><span class="p">:</span> <span class="t">Invoice</span><span class="p">,</span>
+    <span class="s">"payslip"</span><span class="p">:</span> <span class="t">Payslip</span><span class="p">,</span>
+    <span class="s">"driver_license"</span><span class="p">:</span> <span class="t">DriversLicense</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="cm"># ☝️ This dict is the "switch board" / router.
+#    category string → the Python class to use as the output schema.
+#    .get(category) returns None if category isn't in the dict (handle this in prod!)</span>
+
+
+<span class="c"># ═══ run_inference: TWO-AGENT PIPELINE per image ══════════════════════════</span>
+<span class="k">async def</span> <span class="f">run_inference</span><span class="p">(</span>image_path<span class="p">:</span> <span class="t">Path</span><span class="p">)</span> <span class="p">-></span> <span class="t">Invoice</span> <span class="p">|</span> <span class="t">Payslip</span> <span class="p">|</span> <span class="t">DriversLicense</span><span class="p">:</span>
+    <span class="cm"># ← Return type hint: could be any ONE of these three types</span>
+
+    <span class="c"># ─── Build message payloads (image bytes sent to BOTH agents) ───────────</span>
+    <span class="v">classifier_message_parts</span> <span class="p">=</span> <span class="p">[</span>
+        <span class="s">"Classify the type of the following document based on its content and structure."</span><span class="p">,</span>
+        <span class="f">BinaryContent</span><span class="p">(</span>data<span class="p">=</span>image_path<span class="p">.</span><span class="f">read_bytes</span><span class="p">(),</span> media_type<span class="p">=</span><span class="s">"image/jpeg"</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="v">extractor_message_parts</span> <span class="p">=</span> <span class="p">[</span>
+        <span class="s">"Extract the structure from the provided document."</span><span class="p">,</span>
+        <span class="f">BinaryContent</span><span class="p">(</span>data<span class="p">=</span>image_path<span class="p">.</span><span class="f">read_bytes</span><span class="p">(),</span> media_type<span class="p">=</span><span class="s">"image/jpeg"</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="cm"># ⚠️ read_bytes() is called TWICE — the image is read from disk twice.
+    #    Optimisation: read once → store in variable → reuse both times!</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"##File analyzed: {image_path.stem}"</span><span class="p">)</span>
+
+        <span class="c"># ─── STEP 1: CLASSIFY ────────────────────────────────────────────────</span>
+        <span class="v">classifier_response</span> <span class="p">=</span> <span class="k">await</span> <span class="v">classifier_agent</span><span class="p">.</span><span class="f">run</span><span class="p">(</span>classifier_message_parts<span class="p">)</span>
+        <span class="cm"># ☝️ sends image to GPT-4.1 → "What type is this?" → returns DocumentCategory</span>
+
+        <span class="v">category</span> <span class="p">=</span> <span class="v">classifier_response</span><span class="p">.</span>output<span class="p">.</span>category
+        <span class="cm"># e.g.: category = "invoice"</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"\n##Detected category: {category}"</span><span class="p">)</span>
+
+        <span class="c"># ─── STEP 2: PICK THE RIGHT SCHEMA ───────────────────────────────────</span>
+        <span class="v">output_type</span> <span class="p">=</span> <span class="v">classification_to_schema</span><span class="p">.</span><span class="f">get</span><span class="p">(</span>category<span class="p">)</span>
+        <span class="cm"># e.g.: output_type = Invoice  (the Python class itself, not an instance!)</span>
+        <span class="cm"># ⚠️ If category is unknown, output_type = None → extraction_agent.run() will fail!</span>
+        <span class="cm">#    Add: if output_type is None: raise ValueError(f"Unknown category: {category}")</span>
+
+        <span class="c"># ─── STEP 3: EXTRACT WITH THE RIGHT SCHEMA ───────────────────────────</span>
+        <span class="v">extraction_response</span> <span class="p">=</span> <span class="k">await</span> <span class="v">extraction_agent</span><span class="p">.</span><span class="f">run</span><span class="p">(</span>
+            extractor_message_parts<span class="p">,</span>
+            output_type<span class="p">=</span>output_type  <span class="cm"># 🎯 inject schema dynamically at call time!</span>
+        <span class="p">)</span>
+        <span class="cm"># ☝️ Now the extraction agent knows exactly what fields to look for.
+        #    For an invoice: vendor_name, amount, date, line_items etc.
+        #    For a payslip:  employee_name, gross_pay, deductions etc.
+        #    The AI is guided by the exact Pydantic schema fields + their descriptions.</span>
+
+        <span class="f">print</span><span class="p">(</span><span class="s">f"\n##Extracted data: \n{extraction_response.output}"</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="t">Exception</span> <span class="k">as</span> e<span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"Unexpected error while inference: {e}"</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="f">RuntimeError</span> <span class="k">from</span> e
+
+    <span class="k">return</span> <span class="v">extraction_response</span><span class="p">.</span>output  <span class="cm"># Invoice | Payslip | DriversLicense instance</span>
+
+
+<span class="c"># ═══ extract_structured_data: run ALL pages in parallel ═══════════════════</span>
+<span class="k">async def</span> <span class="f">extract_structured_data</span><span class="p">(</span>image_paths<span class="p">)</span> <span class="p">-></span> <span class="t">list</span><span class="p">[</span><span class="t">Invoice</span> <span class="p">|</span> <span class="t">Payslip</span> <span class="p">|</span> <span class="t">DriversLicense</span><span class="p">]:</span>
+    <span class="v">tasks</span> <span class="p">=</span> <span class="p">[</span><span class="f">run_inference</span><span class="p">(</span>path<span class="p">)</span> <span class="k">for</span> path <span class="k">in</span> image_paths<span class="p">]</span>
+    <span class="v">results_objects</span> <span class="p">=</span> <span class="k">await</span> <span class="v">asyncio</span><span class="p">.</span><span class="f">gather</span><span class="p">(</span><span class="p">*</span><span class="v">tasks</span><span class="p">)</span>
+    <span class="k">return</span> <span class="v">results_objects</span>
+
+
+<span class="c"># ═══ workflow: THE MASTER ORCHESTRATOR ════════════════════════════════════</span>
+<span class="k">async def</span> <span class="f">workflow</span><span class="p">():</span>
+    <span class="c"># ─── Build directory paths relative to this script ────────────────────</span>
+    <span class="v">pdf_dir</span> <span class="p">=</span> <span class="f">Path</span><span class="p">(</span>__file__<span class="p">).</span>parent<span class="p">.</span><span class="f">resolve</span><span class="p">()</span> <span class="p">/</span> <span class="s">"data1"</span>
+    <span class="cm"># ☝️ __file__ = path to this .py file
+    #    .parent   = the folder containing it
+    #    .resolve()= convert to absolute path (no ".." shenanigans)
+    #    / "data1" = append "data1" subdirectory (Path's / operator!)</span>
+
+    <span class="v">temp_dir</span>    <span class="p">=</span> <span class="v">pdf_dir</span> <span class="p">/</span> <span class="s">"temp_files"</span>   <span class="cm"># where JPEGs are stored temporarily</span>
+    <span class="v">results_dir</span> <span class="p">=</span> <span class="v">pdf_dir</span> <span class="p">/</span> <span class="s">"results"</span>      <span class="cm"># where JSON outputs are saved</span>
+
+    <span class="v">pdf_paths</span> <span class="p">=</span> <span class="f">list_all_files</span><span class="p">(</span><span class="v">pdf_dir</span><span class="p">)</span>    <span class="cm"># get list of all PDFs in data1/</span>
+
+    <span class="k">for</span> <span class="v">pdf_path</span> <span class="k">in</span> <span class="v">pdf_paths</span><span class="p">:</span>             <span class="cm"># process each PDF one by one (sequential loop)</span>
+        <span class="v">image_paths</span> <span class="p">=</span> <span class="f">pdf_to_jpg</span><span class="p">(</span><span class="v">pdf_path</span><span class="p">,</span> <span class="v">temp_dir</span><span class="p">)</span>   <span class="cm"># PDF pages → JPEG list</span>
+        <span class="v">results</span>     <span class="p">=</span> <span class="k">await</span> <span class="f">extract_structured_data</span><span class="p">(</span><span class="v">image_paths</span><span class="p">)</span>  <span class="cm"># pages → async parallel</span>
+        <span class="f">save_results_to_json</span><span class="p">(</span><span class="v">pdf_path</span><span class="p">.</span>stem<span class="p">,</span> <span class="v">results</span><span class="p">,</span> <span class="v">results_dir</span><span class="p">)</span>  <span class="cm"># save output</span>
+        <span class="cm"># ⚠️ PDFs are processed sequentially, but PAGES within each PDF are parallel.
+        #    To process all PDFs in parallel too: gather the workflow() calls.</span>
+
+
+<span class="c"># ═══ ENTRY POINT ══════════════════════════════════════════════════════════</span>
+<span class="k">if</span> __name__ <span class="p">==</span> <span class="s">"__main__"</span><span class="p">:</span>        <span class="cm"># only runs if THIS file is executed directly</span>
+    <span class="v">start_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="v">asyncio</span><span class="p">.</span><span class="f">run</span><span class="p">(</span><span class="f">workflow</span><span class="p">())</span>     <span class="cm"># create event loop → run workflow → close loop</span>
+    <span class="k">except</span> <span class="t">Exception</span> <span class="k">as</span> e<span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span>e<span class="p">)</span>
+    <span class="v">end_time</span> <span class="p">=</span> <span class="v">time</span><span class="p">.</span><span class="f">perf_counter</span><span class="p">()</span> <span class="p">-</span> <span class="v">start_time</span>
+    <span class="f">print</span><span class="p">(</span><span class="s">f"Analysis took: {end_time:.1f} seconds"</span><span class="p">)</span>
+</pre>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ COMPARISON ══ -->
+<section id="compare">
+  <div class="sec-label">Section 03</div>
+  <div class="sec-title">⚖️ Generic vs Custom — Side by Side</div>
+
+  <table class="comp-table">
+    <thead>
+      <tr><th>Feature</th><th><span class="badge-g">GENERIC</span></th><th><span class="badge-c">CUSTOM</span></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Number of agents</td>
+        <td style="color:#94a3b8">1 agent (all-in-one)</td>
+        <td style="color:#94a3b8">2 agents (classifier + extractor)</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Output schema</td>
+        <td style="color:#94a3b8">Fixed: <code>ModelAnalysisOutput</code> for all docs</td>
+        <td style="color:#94a3b8">Dynamic: Invoice / Payslip / DriversLicense based on classification</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">API calls per page</td>
+        <td style="color:#94a3b8">1 call per page</td>
+        <td style="color:#94a3b8">2 calls per page (classify + extract)</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Data precision</td>
+        <td style="color:#94a3b8">Generic fields (type, markdown, elements list)</td>
+        <td style="color:#94a3b8">Highly specific fields per document type</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Document types</td>
+        <td style="color:#94a3b8">Any document (universal)</td>
+        <td style="color:#94a3b8">Only invoice / payslip / driver license</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Cost</td>
+        <td style="color:#94a3b8">Lower (1 LLM call)</td>
+        <td style="color:#94a3b8">2× higher (2 LLM calls)</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Accuracy on known types</td>
+        <td style="color:#94a3b8">Medium — generic output</td>
+        <td style="color:#94a3b8">High — schema guides extraction precisely</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Model used</td>
+        <td style="color:#94a3b8">GPT-4o (vision focused)</td>
+        <td style="color:#94a3b8">GPT-4.1 (faster, newer)</td>
+      </tr>
+      <tr>
+        <td style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:12px">Has workflow()</td>
+        <td style="color:#94a3b8">❌ No end-to-end orchestration</td>
+        <td style="color:#94a3b8">✅ Full PDF-in → JSON-out pipeline</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══ USE CASES ══ -->
+<section id="usecases">
+  <div class="sec-label">Section 04</div>
+  <div class="sec-title">🌍 Real-World Use Cases</div>
+
+  <div class="uc-grid">
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--purple)">🔮 Generic Agent</span>
+      <h4>Document Discovery</h4>
+      <p>You receive 1000 mixed files and need a quick first-pass: what are they, what's the text content? Generic agent handles all types without setup.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--purple)">🔮 Generic Agent</span>
+      <h4>Knowledge Base Ingestion</h4>
+      <p>Convert a pile of PDFs (manuals, reports, docs) into structured Markdown for a RAG (Retrieval Augmented Generation) pipeline.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--green)">🎯 Custom Agent</span>
+      <h4>Accounts Payable Automation</h4>
+      <p>Upload supplier invoices → auto-extract vendor, amount, GSTIN, line items → push to accounting software like Tally or SAP.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--green)">🎯 Custom Agent</span>
+      <h4>HR Payslip Processing</h4>
+      <p>Auto-read employee payslips for loan applications, background checks, or tax filing — extract gross pay, deductions, net pay precisely.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--green)">🎯 Custom Agent</span>
+      <h4>KYC / Identity Verification</h4>
+      <p>Extract structured data from Driving Licenses, Aadhar, Passports as part of a fintech or bank onboarding pipeline.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--blue)">⚡ Both Patterns</span>
+      <h4>Insurance Claim Processing</h4>
+      <p>Classify claim type (medical, vehicle, property) → extract the right fields. Exactly the two-agent pattern — classify then extract with right schema.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--blue)">⚡ Both Patterns</span>
+      <h4>Logistics / Shipping</h4>
+      <p>Generic agent reads all incoming documents; custom agent specifically extracts Bill of Lading, Delivery Orders, Customs forms with precision.</p>
+    </div>
+    <div class="ucrd">
+      <span class="uc-tag" style="color:var(--orange)">🔶 Agentic AI</span>
+      <h4>Multi-Step Legal Review</h4>
+      <p>Chain more agents: classify → extract → validate against rules → flag anomalies → generate summary report. This code is the foundation.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ GOTCHAS ══ -->
+<section id="gotchas">
+  <div class="sec-label">Section 05</div>
+  <div class="sec-title">⚠️ Gotchas &amp; Best Practices</div>
+
+  <div class="gotcha-grid">
+    <div class="gcrd w">
+      <h4>⚠️ read_bytes() called twice</h4>
+      <p>In <code>agents_custom.py</code>, <code>image_path.read_bytes()</code> is called separately for classifier and extractor — reading the same file from disk twice. Store it: <code>image_data = image_path.read_bytes()</code> and reuse.</p>
+    </div>
+    <div class="gcrd r">
+      <h4>🚨 Unknown category → None schema</h4>
+      <p><code>classification_to_schema.get(category)</code> returns <code>None</code> if the model returns an unexpected value like "contract". This causes a silent failure. Always add: <code>if output_type is None: raise ValueError(...)</code></p>
+    </div>
+    <div class="gcrd w">
+      <h4>⚠️ gather() fails on one error</h4>
+      <p><code>asyncio.gather(*tasks)</code> stops everything if one task raises an exception. For a batch of 50 pages, one bad page kills the rest. Use <code>gather(*tasks, return_exceptions=True)</code> to collect errors as values instead.</p>
+    </div>
+    <div class="gcrd b">
+      <h4>💡 PDF loop is sequential</h4>
+      <p>The <code>for pdf_path in pdf_paths</code> loop processes PDFs one by one. Pages within a PDF run in parallel, but PDFs don't. For large batches, wrap the PDF loop in <code>gather()</code> too.</p>
+    </div>
+    <div class="gcrd p">
+      <h4>🔑 Never hardcode API keys</h4>
+      <p><code>os.getenv("GITHUB_API_KEY")</code> + <code>load_dotenv()</code> is correct. Never write the key directly in code. In production, use a secrets manager (AWS Secrets Manager, Azure Key Vault, etc.).</p>
+    </div>
+    <div class="gcrd g">
+      <h4>✅ Field descriptions = prompt engineering</h4>
+      <p>The <code>description=</code> in every <code>Field(...)</code> isn't just documentation — it gets sent to the LLM as part of the JSON schema. Better descriptions = better extraction accuracy. Treat them like micro-prompts.</p>
+    </div>
+    <div class="gcrd w">
+      <h4>⚠️ Rate limits with gather()</h4>
+      <p>Sending 50 images in parallel via <code>gather()</code> fires 50 API calls simultaneously. GitHub/OpenAI will rate-limit you. Use <code>asyncio.Semaphore(5)</code> to cap concurrent requests.</p>
+    </div>
+    <div class="gcrd g">
+      <h4>✅ temperature=0 for extraction</h4>
+      <p>Always use <code>temperature=0</code> for document extraction tasks. Higher temperatures introduce randomness that can corrupt structured outputs with hallucinated values. Save creativity for generation tasks.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CHEATSHEET ══ -->
+<div class="cheatsheet">
+  <h3>🗂 Quick Mental Model Cheatsheet</h3>
+  <div class="cs-grid">
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--pink)">📦 BaseModel</div>
+      <div class="cs-val">= A form template. Defines what fields exist, what type they are, and what they mean.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--yellow)">🎯 output_type</div>
+      <div class="cs-val">= "AI, fill in this form." Forces structured output instead of free text. Can be set dynamically per call.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--green)">🖼 BinaryContent</div>
+      <div class="cs-val">= Sending a photo to the AI. Attach image bytes alongside your text instruction — multimodal prompt.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--blue)">🕵️ Two-Agent Pipeline</div>
+      <div class="cs-val">= Worker 1 sorts mail. Worker 2 fills the right form. Classify first → extract with precision second.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--purple)">🗺 Dict Routing</div>
+      <div class="cs-val">= A menu board. Map string labels to Python classes. .get(key) picks the right schema at runtime.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--orange)">⚡ asyncio.gather</div>
+      <div class="cs-val">= Post all letters at once. Fire all API calls simultaneously — total time = slowest call, not sum.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>
+  🤖 GenAI Mentor · agents_generic.py &amp; agents_custom.py Reverse Engineered · PydanticAI + GPT-4o + asyncio
+</footer>
+
+</body>
+</html>

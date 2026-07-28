@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agentic AI Deep Dive — PydanticAI Document Parser</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg-void: #050810;
+    --bg-surface: #0d1117;
+    --bg-card: #131923;
+    --bg-card2: #1a2233;
+    --border: #1e2d42;
+    --border-glow: #2a4080;
+    --purple-deep: #3d1a78;
+    --purple-mid: #6c3fc9;
+    --purple-bright: #a855f7;
+    --purple-pale: #d8b4fe;
+    --blue-electric: #3b82f6;
+    --blue-bright: #60a5fa;
+    --blue-pale: #bfdbfe;
+    --teal: #14b8a6;
+    --teal-pale: #99f6e4;
+    --amber: #f59e0b;
+    --amber-pale: #fde68a;
+    --red: #f43f5e;
+    --green: #10b981;
+    --text-primary: #e8edf5;
+    --text-secondary: #8fa0bc;
+    --text-muted: #4a5568;
+    --code-bg: #0a0f1a;
+    --tab-h: 60px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg-void);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO HEADER ─────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    padding: 56px 40px 48px;
+    text-align: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(108,63,201,.35) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 20% 80%, rgba(20,184,166,.18) 0%, transparent 60%),
+      radial-gradient(ellipse 30% 25% at 80% 90%, rgba(59,130,246,.18) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--teal);
+    border: 1px solid rgba(20,184,166,.35);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    background: rgba(20,184,166,.07);
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 5vw, 58px);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #e8edf5 0%, var(--purple-pale) 45%, var(--blue-pale) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .hero p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 24px;
+  }
+  .tag {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  .tag.purple { color: var(--purple-bright); border-color: rgba(168,85,247,.35); background: rgba(168,85,247,.08); }
+  .tag.blue   { color: var(--blue-bright);   border-color: rgba(96,165,250,.35);  background: rgba(96,165,250,.08); }
+  .tag.teal   { color: var(--teal);           border-color: rgba(20,184,166,.35);  background: rgba(20,184,166,.08); }
+  .tag.amber  { color: var(--amber);          border-color: rgba(245,158,11,.35);  background: rgba(245,158,11,.08); }
+
+  /* ── TABS ────────────────────────────────────────────────── */
+  .tabs-nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex;
+    background: rgba(5,8,16,.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    gap: 0;
+  }
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--tab-h);
+    padding: 0 24px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .tab-btn .tab-icon { font-size: 16px; }
+  .tab-btn .tab-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    transition: all .2s;
+  }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active { color: var(--purple-pale); border-bottom-color: var(--purple-bright); }
+  .tab-btn.active .tab-num { background: rgba(168,85,247,.2); color: var(--purple-bright); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeUp .35s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── LAYOUT ──────────────────────────────────────────────── */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 40px;
+  }
+
+  /* ── SECTION HEADERS ─────────────────────────────────────── */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--purple-bright);
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(22px, 3vw, 34px);
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+  }
+  .section-sub {
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin-bottom: 40px;
+    line-height: 1.6;
+  }
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 48px 0;
+  }
+
+  /* ── CARDS ───────────────────────────────────────────────── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: var(--border-glow); }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-body { font-size: 14.5px; line-height: 1.75; color: var(--text-secondary); }
+  .card-body strong { color: var(--text-primary); }
+  .card-body ul { padding-left: 20px; margin-top: 8px; }
+  .card-body li { margin-bottom: 6px; }
+
+  /* ── CALLOUT BOXES ───────────────────────────────────────── */
+  .callout {
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    border-left: 3px solid;
+    position: relative;
+    overflow: hidden;
+  }
+  .callout::before {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: .07;
+  }
+  .callout.purple { border-color: var(--purple-bright); background: rgba(168,85,247,.08); }
+  .callout.purple::before { background: var(--purple-bright); }
+  .callout.blue   { border-color: var(--blue-electric);  background: rgba(59,130,246,.08); }
+  .callout.blue::before   { background: var(--blue-electric); }
+  .callout.teal   { border-color: var(--teal);            background: rgba(20,184,166,.08); }
+  .callout.teal::before   { background: var(--teal); }
+  .callout.amber  { border-color: var(--amber);           background: rgba(245,158,11,.08); }
+  .callout.amber::before  { background: var(--amber); }
+  .callout.red    { border-color: var(--red);             background: rgba(244,63,94,.08); }
+  .callout.red::before    { background: var(--red); }
+  .callout-label {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .callout.purple .callout-label { color: var(--purple-bright); }
+  .callout.blue   .callout-label { color: var(--blue-bright); }
+  .callout.teal   .callout-label { color: var(--teal); }
+  .callout.amber  .callout-label { color: var(--amber); }
+  .callout.red    .callout-label { color: var(--red); }
+  .callout-body { font-size: 14.5px; line-height: 1.7; color: var(--text-primary); }
+
+  /* ── GRID ────────────────────────────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 720px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .tabs-nav { padding: 0 16px; overflow-x: auto; }
+    .container { padding: 32px 20px; }
+    .hero { padding: 40px 20px 36px; }
+    .tab-btn { padding: 0 14px; font-size: 12px; }
+  }
+
+  /* ── FLOW DIAGRAM ────────────────────────────────────────── */
+  .flow-box {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin: 24px 0;
+  }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .flow-step .step-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+  .flow-arrow {
+    color: var(--text-muted);
+    font-size: 18px;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+  .step-purple .step-num { background: rgba(168,85,247,.25); color: var(--purple-bright); }
+  .step-blue   .step-num { background: rgba(96,165,250,.25);  color: var(--blue-bright); }
+  .step-teal   .step-num { background: rgba(20,184,166,.25);  color: var(--teal); }
+  .step-amber  .step-num { background: rgba(245,158,11,.25);  color: var(--amber); }
+  .step-green  .step-num { background: rgba(16,185,129,.25);  color: var(--green); }
+
+  /* ── INLINE CODE ─────────────────────────────────────────── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: rgba(59,130,246,.12);
+    color: var(--blue-pale);
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid rgba(59,130,246,.2);
+  }
+
+  /* ── CODE BLOCK ──────────────────────────────────────────── */
+  .code-wrapper {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,.02);
+  }
+  .code-header .dots { display: flex; gap: 6px; }
+  .code-header .dot {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+  }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28c840; }
+  .code-header .filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .copy-btn:hover { color: var(--text-primary); border-color: var(--border-glow); }
+  .code-scroll { overflow-x: auto; }
+  pre {
+    padding: 24px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    counter-reset: line;
+  }
+  .line {
+    display: flex;
+    padding: 0 20px 0 0;
+    position: relative;
+  }
+  .line:hover { background: rgba(255,255,255,.03); }
+  .line-num {
+    min-width: 48px;
+    text-align: right;
+    padding-right: 20px;
+    color: var(--text-muted);
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .line-code { white-space: pre; flex: 1; }
+
+  /* Syntax colors */
+  .kw  { color: #c792ea; }
+  .fn  { color: #82aaff; }
+  .cl  { color: #ffcb6b; }
+  .str { color: #c3e88d; }
+  .cm  { color: #546e7a; font-style: italic; }
+  .op  { color: #89ddff; }
+  .dc  { color: #f78c6c; }
+  .pm  { color: var(--purple-pale); }
+
+  /* Annotated lines */
+  .line.annotated { background: rgba(168,85,247,.06); border-left: 2px solid var(--purple-bright); }
+  .line.agent-line { background: rgba(20,184,166,.06); border-left: 2px solid var(--teal); }
+
+  /* ── WALKTHROUGH SECTION ─────────────────────────────────── */
+  .walk-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+  @media (max-width: 800px) { .walk-block { grid-template-columns: 1fr; } }
+  .walk-code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .walk-explain {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+  .walk-explain strong { color: var(--text-primary); }
+  .walk-heading {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    color: var(--teal);
+  }
+  .agent-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(20,184,166,.15);
+    color: var(--teal);
+    border: 1px solid rgba(20,184,166,.3);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .api-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(59,130,246,.12);
+    color: var(--blue-bright);
+    border: 1px solid rgba(59,130,246,.25);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* ── ASSESSMENT ──────────────────────────────────────────── */
+  .q-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 18px;
+    transition: border-color .2s;
+  }
+  .q-block:hover { border-color: var(--border-glow); }
+  .q-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .q-label.mcq { color: var(--purple-bright); }
+  .q-label.scenario { color: var(--teal); }
+  .q-text { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 14px; line-height: 1.5; }
+  .options { list-style: none; }
+  .options li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    border: 1px solid transparent;
+    user-select: none;
+  }
+  .options li:hover { background: rgba(255,255,255,.04); border-color: var(--border); color: var(--text-primary); }
+  .options li.selected { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.4); color: var(--purple-pale); }
+  .options li.correct  { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
+  .options li.wrong    { background: rgba(244,63,94,.1);   border-color: rgba(244,63,94,.35);  color: #fda4af; }
+  .opt-key {
+    min-width: 22px; height: 22px;
+    border-radius: 5px;
+    background: var(--bg-card2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .scenario-box {
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-bottom: 10px;
+    line-height: 1.65;
+  }
+  textarea.scenario-ans {
+    width: 100%;
+    min-height: 90px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text-primary);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color .2s;
+    margin-top: 10px;
+  }
+  textarea.scenario-ans:focus { border-color: var(--purple-bright); }
+  .answer-key-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--amber);
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.25);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .2s;
+    margin: 28px 0 0;
+  }
+  .answer-key-toggle:hover { background: rgba(245,158,11,.14); border-color: var(--amber); }
+  .answer-key {
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid rgba(245,158,11,.2);
+    border-radius: 12px;
+    padding: 28px;
+    margin-top: 16px;
+  }
+  .answer-key.open { display: block; animation: fadeUp .3s ease; }
+  .answer-key h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--amber);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ans-item { margin-bottom: 16px; }
+  .ans-q { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+  .ans-a { font-size: 14px; color: var(--teal-pale); line-height: 1.65; }
+  .ans-a strong { color: var(--amber-pale); }
+
+  /* ── ARCHITECTURE VISUAL ─────────────────────────────────── */
+  .arch {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin: 24px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 2;
+    color: var(--text-secondary);
+    overflow-x: auto;
+  }
+  .arch .ah { color: var(--purple-bright); font-weight: 700; }
+  .arch .ab { color: var(--blue-bright); }
+  .arch .at { color: var(--teal); }
+  .arch .ag { color: var(--green); }
+  .arch .aa { color: var(--amber); }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 3px;
+    background: linear-gradient(90deg, var(--purple-bright), var(--blue-electric), var(--teal));
+    border-radius: 2px;
+    margin-bottom: 40px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin: 16px 0 24px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ════ HERO ════ -->
+<header class="hero">
+  <div class="hero-eyebrow">Module 4.2 · PydanticAI · Generative AI Course</div>
+  <h1>Agentic AI &<br/>Document Intelligence</h1>
+  <p>A complete deep dive into multimodal LLM agents, structured outputs, and async orchestration — reverse-engineered from real production code.</p>
+  <div class="hero-tags">
+    <span class="tag purple">PydanticAI</span>
+    <span class="tag blue">Structured Outputs</span>
+    <span class="tag teal">Async Agents</span>
+    <span class="tag amber">Multi-Modal</span>
+    <span class="tag purple">OCR Intelligence</span>
+    <span class="tag blue">pydantic-ai Agent</span>
+    <span class="tag teal">BinaryContent</span>
+  </div>
+</header>
+
+<!-- ════ TAB NAV ════ -->
+<nav class="tabs-nav">
+  <button class="tab-btn active" onclick="switchTab('theory', this)">
+    <span class="tab-icon">🧠</span> Conceptual Deep Dive <span class="tab-num">01</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('code', this)">
+    <span class="tab-icon">⚙️</span> Code Walkthrough <span class="tab-num">02</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('assess', this)">
+    <span class="tab-icon">📝</span> Assessment <span class="tab-num">03</span>
+  </button>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!--  TAB 1: THEORY                                          -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-theory" class="tab-panel active">
+<div class="container">
+  <div class="progress-bar" style="width:33%"></div>
+  <div class="section-label">Tab 01 — Theory</div>
+  <h2 class="section-title">Conceptual Deep Dive</h2>
+  <p class="section-sub">Understand the Agentic AI patterns in this codebase, from the ground up — no prior experience with LLM agents required.</p>
+
+  <!-- PATTERN OVERVIEW -->
+  <div class="card">
+    <div class="card-title" style="color:var(--purple-bright)">🔍 What Patterns Does This Code Use?</div>
+    <div class="card-body">
+      After reverse-engineering all three script families, four core Agentic AI patterns emerge:
+      <ul>
+        <li><strong>1. Tool-Augmented Perception</strong> — Sending images (binary data) alongside text prompts so the LLM can "see."</li>
+        <li><strong>2. Structured Output Enforcement</strong> — Forcing the LLM to return a typed schema (Pydantic model), not free-form text.</li>
+        <li><strong>3. Multi-Agent Pipeline (Classify → Extract)</strong> — Two specialized agents working in sequence: one classifies, one extracts.</li>
+        <li><strong>4. Concurrent Async Orchestration</strong> — Running many agent calls simultaneously using Python's async/await + <code>asyncio.gather</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PATTERN 1: LLM AGENTS -->
+  <div class="section-label">Pattern 1</div>
+  <h3 class="section-title" style="font-size:24px">What Is an LLM "Agent"?</h3>
+
+  <div class="callout purple">
+    <div class="callout-label">🔑 Key Definition — LLM Agent</div>
+    <div class="callout-body">
+      An <strong>LLM Agent</strong> is an AI system that wraps a language model with additional capability: it can receive structured inputs (text + images + tool results), reason about them, and produce structured outputs — all in a loop that can run autonomously. Unlike a plain API call, an agent has a defined <em>role</em>, <em>memory of the conversation</em>, and <em>type-safe output</em>.
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:16px">
+    <div class="card">
+      <div class="card-title" style="color:var(--text-muted)">🔁 Plain LLM API Call</div>
+      <div class="card-body">
+        You send a text string → The LLM responds with a text string. <strong>No guarantee</strong> on the shape of the response. You manually parse the output. No persistent role.
+        <br/><br/>
+        <code>response = openai.chat.completions.create(...)</code><br/>
+        <code>text = response.choices[0].message.content</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--teal)">🤖 PydanticAI Agent</div>
+      <div class="card-body">
+        You define an agent with an <strong>identity</strong> (system instructions), an <strong>output schema</strong> (Pydantic model), and call <code>agent.run()</code>. You get a <strong>typed object</strong> back — no manual parsing needed.
+        <br/><br/>
+        <code>agent = Agent(model, instructions=..., output_type=Invoice)</code><br/>
+        <code>result = await agent.run([prompt, image])</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout blue" style="margin-top:20px">
+    <div class="callout-label">💡 Analogy</div>
+    <div class="callout-body">
+      Think of a plain LLM call as hiring a freelancer with no job description and getting a Word doc in response. A PydanticAI Agent is like hiring a specialist with a clear role, who must deliver a pre-agreed, machine-readable report format — every time.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PATTERN 2: MULTIMODAL -->
+  <div class="section-label">Pattern 2</div>
+  <h3 class="section-title" style="font-size:24px">Multimodal Inputs — Giving the Agent Eyes</h3>
+
+  <div class="callout purple">
+    <div class="callout-label">🔑 Key Definition — Multimodal LLM</div>
+    <div class="callout-body">
+      A <strong>Multimodal LLM</strong> can process more than one type of input simultaneously. In this codebase, the agent receives both a <em>text instruction</em> and a <em>JPEG image</em> (the PDF page). It reasons across both modalities to extract structure from the document.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--blue-bright)">🖼️ How BinaryContent Works</div>
+    <div class="card-body">
+      PDFs are first rendered to JPEG images (using <code>pdf2image</code>). Each page image is then read as raw bytes and wrapped in a <code>BinaryContent</code> object — which PydanticAI knows how to encode and send to the vision-capable LLM (GPT-4o, Llama 4 Scout).
+      <br/><br/>
+      <code>BinaryContent(data=image_path.read_bytes(), media_type="image/jpeg")</code>
+      <br/><br/>
+      This is then bundled with a text prompt into a single message list that the agent processes together.
+    </div>
+  </div>
+
+  <div class="flow-box">
+    <div class="flow-step step-purple"><span class="step-num">1</span> PDF File</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-blue"><span class="step-num">2</span> Convert to JPEG</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-teal"><span class="step-num">3</span> Read as bytes</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-amber"><span class="step-num">4</span> BinaryContent</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-green"><span class="step-num">5</span> Agent sees image</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PATTERN 3: STRUCTURED OUTPUT -->
+  <div class="section-label">Pattern 3</div>
+  <h3 class="section-title" style="font-size:24px">Structured Output — Taming the LLM</h3>
+
+  <div class="callout teal">
+    <div class="callout-label">🔑 Key Definition — Structured Output</div>
+    <div class="callout-body">
+      <strong>Structured Output</strong> forces an LLM to respond in a predefined schema rather than free-form text. PydanticAI uses Pydantic models — Python classes with typed fields — to define this schema. The framework converts the model into a JSON Schema, embeds it in the system prompt, and validates the LLM's response automatically.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--teal)">📐 The Schema Hierarchy in This Code</div>
+    <div class="card-body">
+      <ul>
+        <li><strong>FileElement</strong> → Represents one logical block on a page (table, paragraph, image).</li>
+        <li><strong>ModelAnalysisOutput</strong> → The top-level structured response: document type + list of FileElements.</li>
+        <li><strong>OCROutput</strong> → The final result object: filename + ModelAnalysisOutput.</li>
+      </ul>
+      <br/>
+      Each field has a <code>description</code> that the LLM actually reads to know what to put there. The <code>Field(description=...)</code> annotation is your <em>natural language API contract</em> with the model.
+    </div>
+  </div>
+
+  <div class="callout amber">
+    <div class="callout-label">⚠️ Why This Matters</div>
+    <div class="callout-body">
+      Without structured output, an LLM might say "This looks like an invoice with total $1,200." With it, you get a Python object: <code>invoice.total_amount == 1200.00</code>, <code>invoice.currency == "USD"</code> — directly usable in your downstream code.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PATTERN 4: MULTI-AGENT -->
+  <div class="section-label">Pattern 4</div>
+  <h3 class="section-title" style="font-size:24px">Multi-Agent Pipeline — Specialist Division of Labor</h3>
+
+  <div class="callout purple">
+    <div class="callout-label">🔑 Key Definition — Multi-Agent System</div>
+    <div class="callout-body">
+      A <strong>Multi-Agent System</strong> uses multiple specialized AI agents, each responsible for a distinct subtask, passing outputs from one to the next. This is more reliable than asking one agent to do everything, because each agent can be precisely tuned with its own instructions and output schema.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--purple-bright)">🔗 The Classifier → Extractor Pipeline (<code>agents_custom.py</code>)</div>
+    <div class="card-body">
+      <strong>Step 1 — Classifier Agent:</strong> Sends the document image and asks "What type of document is this?" Returns a <code>DocumentCategory</code> (invoice, payslip, driver_license).<br/><br/>
+      <strong>Step 2 — Extractor Agent:</strong> Receives the same image + the category-specific schema (e.g., <code>Invoice</code>). Extracts only the relevant fields for that document type.<br/><br/>
+      This two-step approach is <strong>far more accurate</strong> than asking one agent to classify AND extract simultaneously — a well-known Agentic AI design principle called <em>separation of concerns</em>.
+    </div>
+  </div>
+
+  <div class="flow-box">
+    <div class="flow-step step-purple"><span class="step-num">1</span> Image Input</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-blue"><span class="step-num">2</span> classifier_agent → category</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-teal"><span class="step-num">3</span> lookup schema</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-amber"><span class="step-num">4</span> extraction_agent → typed data</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PATTERN 5: ASYNC -->
+  <div class="section-label">Pattern 5</div>
+  <h3 class="section-title" style="font-size:24px">Async Concurrency — Parallelizing Agent Calls</h3>
+
+  <div class="callout blue">
+    <div class="callout-label">🔑 Key Definition — Async/Await in AI Pipelines</div>
+    <div class="callout-body">
+      <strong>Async/Await</strong> lets Python run many I/O-bound tasks (like LLM API calls) simultaneously without blocking. Instead of waiting 3 seconds for one document to finish before starting the next, all documents are processed concurrently — reducing total time from N×T to roughly T.
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">🐌 Sequential (Slow)</div>
+      <div class="card-body">
+        Process doc1 → wait 3s → process doc2 → wait 3s → ...<br/>
+        4 documents = <strong>12 seconds</strong>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--green)">⚡ Concurrent with asyncio.gather</div>
+      <div class="card-body">
+        Start all 4 docs simultaneously → all complete in ~3s<br/>
+        4 documents = <strong>~3 seconds</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout teal" style="margin-top:20px">
+    <div class="callout-label">📌 Key Functions in This Codebase</div>
+    <div class="callout-body">
+      <strong><code>asyncio.gather(*tasks)</code></strong> — fires all coroutines at once, waits for all to finish.<br/>
+      <strong><code>tqdm_asyncio.gather(*tasks)</code></strong> — same, but shows a live progress bar.<br/>
+      <strong><code>asyncio.create_task(...)</code></strong> — schedules a coroutine as a background task immediately.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ARCHITECTURE DIAGRAM -->
+  <div class="section-label">System Overview</div>
+  <h3 class="section-title" style="font-size:24px">Full Architecture at a Glance</h3>
+
+  <div class="arch">
+<span class="ah">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="ah">│               AGENTIC DOCUMENT PARSER ARCHITECTURE         │</span>
+<span class="ah">└─────────────────────────────────────────────────────────────┘</span>
+
+<span class="ab">  workflow.py</span>              <span class="cm">← Entry point: orchestrates everything</span>
+       │
+       ├── <span class="at">utils.py</span>          <span class="cm">← list PDFs, convert PDF→JPEG, save JSON</span>
+       │
+       └── <span class="ag">agents/</span>
+            │
+            ├── <span class="ag">generic_doc_agent.py</span>  <span class="cm">← Single Agent approach</span>
+            │    └── <span class="aa">Agent</span>(model, instructions, <span class="aa">output_type=ModelAnalysisOutput</span>)
+            │         ├── sends: [text_prompt + <span class="aa">BinaryContent(image)</span>]
+            │         └── returns: <span class="aa">ModelAnalysisOutput</span> (structured JSON)
+            │
+            └── <span class="ag">agents_custom.py</span>      <span class="cm">← Two-Agent pipeline approach</span>
+                 ├── <span class="aa">classifier_agent</span>  → <span class="at">DocumentCategory</span>
+                 └── <span class="aa">extraction_agent</span>  → <span class="at">Invoice | Payslip | DriversLicense</span>
+  </div>
+
+</div>
+</div><!-- /tab-theory -->
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!--  TAB 2: CODE WALKTHROUGH                                -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-code" class="tab-panel">
+<div class="container">
+  <div class="progress-bar" style="width:66%"></div>
+  <div class="section-label">Tab 02 — Code</div>
+  <h2 class="section-title">Code Walkthrough</h2>
+  <p class="section-sub">Complete annotated source with beginner-friendly explanations. Lines with a <span style="color:var(--teal)">teal border</span> contain the core <strong>Agent logic</strong>; lines with a <span style="color:var(--purple-bright)">purple border</span> are key patterns to memorize.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div> Agent Logic</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple-bright)"></div> Key Pattern</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.08)"></div> Standard Code</div>
+  </div>
+
+  <!-- ── FILE 1: generic_doc_agent.py ── -->
+  <h3 style="font-size:18px; font-weight:700; margin-bottom:16px; color:var(--text-primary)">
+    File 1: <code style="font-size:14px">agents/generic_doc_agent.py</code>
+    <span class="agent-badge">Core Agent</span>
+  </h3>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="filename">generic_doc_agent.py</span>
+      <button class="copy-btn" onclick="copyCode('code1')">Copy</button>
+    </div>
+    <div class="code-scroll">
+      <pre id="code1"><div class="line annotated"><span class="line-num">1</span><span class="line-code"><span class="kw">from</span> <span class="fn">tqdm.asyncio</span> <span class="kw">import</span> <span class="cl">tqdm_asyncio</span>      <span class="cm"># Async-compatible progress bar</span></span></div><div class="line"><span class="line-num">2</span><span class="line-code"><span class="kw">import</span> <span class="fn">os</span>                                       <span class="cm"># Read env variables (API keys)</span></span></div><div class="line"><span class="line-num">3</span><span class="line-code"><span class="kw">from</span> <span class="fn">pathlib</span> <span class="kw">import</span> <span class="cl">Path</span>                       <span class="cm"># OS-agnostic file path handling</span></span></div><div class="line"><span class="line-num">4</span><span class="line-code"><span class="kw">from</span> <span class="fn">dotenv</span> <span class="kw">import</span> <span class="fn">load_dotenv</span>               <span class="cm"># Load .env file for secrets</span></span></div><div class="line annotated"><span class="line-num">5</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic_ai</span> <span class="kw">import</span> <span class="cl">Agent</span>, <span class="cl">BinaryContent</span> <span class="cm"># THE KEY IMPORTS: Agent framework + image wrapper</span></span></div><div class="line"><span class="line-num">6</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic_ai.models.openai</span> <span class="kw">import</span> <span class="cl">OpenAIChatModel</span></span></div><div class="line"><span class="line-num">7</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic_ai.providers.github</span> <span class="kw">import</span> <span class="cl">GitHubProvider</span></span></div><div class="line"><span class="line-num">8</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic_ai.models.groq</span> <span class="kw">import</span> <span class="cl">GroqModel</span></span></div><div class="line"><span class="line-num">9</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic_ai.providers.groq</span> <span class="kw">import</span> <span class="cl">GroqProvider</span></span></div><div class="line"><span class="line-num">10</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic_ai.settings</span> <span class="kw">import</span> <span class="cl">ModelSettings</span>  <span class="cm"># Temperature, etc.</span></span></div><div class="line"><span class="line-num">11</span><span class="line-code"><span class="kw">from</span> <span class="fn">models.generic</span> <span class="kw">import</span> <span class="cl">ModelAnalysisOutput</span>, <span class="cl">OCROutput</span></span></div><div class="line"><span class="line-num">12</span><span class="line-code"></span></div><div class="line"><span class="line-num">13</span><span class="line-code"><span class="fn">load_dotenv</span>()  <span class="cm"># Makes os.getenv() work for API keys in .env file</span></span></div><div class="line"><span class="line-num">14</span><span class="line-code"></span></div><div class="line"><span class="line-num">15</span><span class="line-code"><span class="cm"># OPTION A: GPT-4o via GitHub Models API (OpenAI-compatible endpoint)</span></span></div><div class="line"><span class="line-num">16</span><span class="line-code">model <span class="op">=</span> <span class="cl">OpenAIChatModel</span>(<span class="str">"openai/gpt-4o"</span>, provider<span class="op">=</span><span class="cl">GitHubProvider</span>(api_key<span class="op">=</span>os.<span class="fn">getenv</span>(<span class="str">"GITHUB_API_KEY"</span>)), settings<span class="op">=</span><span class="cl">ModelSettings</span>(temperature<span class="op">=0</span>))</span></div><div class="line annotated"><span class="line-num">17</span><span class="line-code">model <span class="op">=</span> <span class="cl">GroqModel</span>(<span class="str">'meta-llama/llama-4-scout-17b-16e-instruct'</span>, provider<span class="op">=</span><span class="cl">GroqProvider</span>(api_key<span class="op">=</span>os.<span class="fn">getenv</span>(<span class="str">"GROQ_API_KEY"</span>)), settings<span class="op">=</span><span class="cl">ModelSettings</span>(temperature<span class="op">=0</span>))  <span class="cm"># OPTION B (active): Llama 4 via Groq. temperature=0 means deterministic output</span></span></div><div class="line"><span class="line-num">18</span><span class="line-code"></span></div><div class="line agent-line"><span class="line-num">19</span><span class="line-code">agent <span class="op">=</span> <span class="cl">Agent</span>(   <span class="cm"># ← THE AGENT DEFINITION. This is where Agentic AI begins.</span></span></div><div class="line agent-line"><span class="line-num">20</span><span class="line-code">    model<span class="op">=</span>model,</span></div><div class="line agent-line"><span class="line-num">21</span><span class="line-code">    instructions<span class="op">=</span><span class="str">"You are an OCR expert specialized in the data extraction \</span></span></div><div class="line agent-line"><span class="line-num">22</span><span class="line-code"><span class="str">        from various types of documents. You are always precise and make sure \</span></span></div><div class="line agent-line"><span class="line-num">23</span><span class="line-code"><span class="str">        that extraction is done properly."</span>,   <span class="cm"># System prompt — gives the agent a persona</span></span></div><div class="line agent-line"><span class="line-num">24</span><span class="line-code">    output_type<span class="op">=</span><span class="cl">ModelAnalysisOutput</span>,   <span class="cm"># Forces structured output — LLM MUST return this schema</span></span></div><div class="line agent-line"><span class="line-num">25</span><span class="line-code">)</span></div><div class="line"><span class="line-num">26</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">27</span><span class="line-code"><span class="kw">async def</span> <span class="fn">run_inference</span>(image_path: <span class="cl">Path</span>) <span class="op">-></span> <span class="cl">OCROutput</span>:   <span class="cm"># async = non-blocking, allows concurrency</span></span></div><div class="line annotated"><span class="line-num">28</span><span class="line-code">    message_parts <span class="op">=</span> [</span></div><div class="line annotated"><span class="line-num">29</span><span class="line-code">        <span class="str">"Extract the structure from the provided document."</span>,  <span class="cm"># Text instruction to the LLM</span></span></div><div class="line annotated"><span class="line-num">30</span><span class="line-code">        <span class="cl">BinaryContent</span>(data<span class="op">=</span>image_path.<span class="fn">read_bytes</span>(), media_type<span class="op">=</span><span class="str">"image/jpeg"</span>)  <span class="cm"># Image bytes — multimodal input</span></span></div><div class="line annotated"><span class="line-num">31</span><span class="line-code">    ]</span></div><div class="line"><span class="line-num">32</span><span class="line-code"></span></div><div class="line agent-line"><span class="line-num">33</span><span class="line-code">    <span class="kw">try</span>:</span></div><div class="line agent-line"><span class="line-num">34</span><span class="line-code">        analysis_result <span class="op">=</span> <span class="kw">await</span> agent.<span class="fn">run</span>(message_parts)  <span class="cm"># THE AGENT CALL. await = suspend here, let others run</span></span></div><div class="line agent-line"><span class="line-num">35</span><span class="line-code">        <span class="fn">print</span>(<span class="dc">f</span><span class="str">"File analyzed: {image_path.stem}"</span>)</span></div><div class="line agent-line"><span class="line-num">36</span><span class="line-code">    <span class="kw">except</span> <span class="cl">Exception</span> <span class="kw">as</span> e:</span></div><div class="line agent-line"><span class="line-num">37</span><span class="line-code">        <span class="fn">print</span>(<span class="dc">f</span><span class="str">"Unexpected error while inference: {e}"</span>)</span></div><div class="line agent-line"><span class="line-num">38</span><span class="line-code">        <span class="kw">raise</span> e</span></div><div class="line"><span class="line-num">39</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">40</span><span class="line-code">    output <span class="op">=</span> <span class="cl">OCROutput</span>(filename<span class="op">=</span>image_path.stem, analysis_result<span class="op">=</span>analysis_result.output)  <span class="cm"># .output gives the validated Pydantic object</span></span></div><div class="line annotated"><span class="line-num">41</span><span class="line-code">    <span class="kw">return</span> output</span></div><div class="line"><span class="line-num">42</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">43</span><span class="line-code"><span class="kw">async def</span> <span class="fn">analyze_each_page</span>(image_paths: <span class="cl">list</span>[<span class="cl">Path</span>]) <span class="op">-></span> <span class="cl">list</span>[<span class="cl">OCROutput</span>]:</span></div><div class="line annotated"><span class="line-num">44</span><span class="line-code">    tasks <span class="op">=</span> [<span class="fn">run_inference</span>(path) <span class="kw">for</span> path <span class="kw">in</span> image_paths]  <span class="cm"># List comprehension: creates coroutine for each image</span></span></div><div class="line annotated"><span class="line-num">45</span><span class="line-code">    results_objects <span class="op">=</span> <span class="kw">await</span> <span class="fn">tqdm_asyncio.gather</span>(<span class="op">*</span>tasks)    <span class="cm"># Run ALL concurrently, show progress bar</span></span></div><div class="line annotated"><span class="line-num">46</span><span class="line-code">    <span class="kw">return</span> results_objects</span></div></pre>
+    </div>
+  </div>
+
+  <!-- WALKTHROUGH SECTIONS -->
+  <div class="walk-block">
+    <div>
+      <div class="walk-heading">Lines 5, 19–25</div>
+      <div class="walk-code"><span class="kw">from</span> <span class="fn">pydantic_ai</span> <span class="kw">import</span> <span class="cl">Agent</span>, <span class="cl">BinaryContent</span>
+
+agent <span class="op">=</span> <span class="cl">Agent</span>(
+  model<span class="op">=</span>model,
+  instructions<span class="op">=</span><span class="str">"You are an OCR expert..."</span>,
+  output_type<span class="op">=</span><span class="cl">ModelAnalysisOutput</span>
+)</div>
+    </div>
+    <div class="walk-explain">
+      <strong>🤖 This is where the Agent comes alive.</strong><span class="agent-badge">Agent Logic</span><br/><br/>
+      <code>Agent</code> is PydanticAI's core class. The <code>instructions</code> become the <em>system prompt</em> — the agent's permanent personality and role. The <code>output_type</code> is the critical piece: it tells the framework to validate and parse the LLM's raw JSON response into a strongly-typed Python object. If the LLM returns an invalid schema, PydanticAI retries automatically.
+    </div>
+  </div>
+
+  <div class="walk-block">
+    <div>
+      <div class="walk-heading">Lines 28–31</div>
+      <div class="walk-code">message_parts <span class="op">=</span> [
+  <span class="str">"Extract structure..."</span>,
+  <span class="cl">BinaryContent</span>(
+    data<span class="op">=</span>image_path.<span class="fn">read_bytes</span>(),
+    media_type<span class="op">=</span><span class="str">"image/jpeg"</span>
+  )
+]</div>
+    </div>
+    <div class="walk-explain">
+      <strong>🖼️ Multimodal message construction.</strong><span class="api-badge">Multimodal</span><br/><br/>
+      PydanticAI's <code>agent.run()</code> accepts a <em>list</em> of message parts — not just a string. Mixing text and <code>BinaryContent</code> creates a multimodal prompt. The framework handles encoding the image bytes into the API's expected base64 format behind the scenes. <code>read_bytes()</code> loads the full JPEG into memory as raw bytes.
+    </div>
+  </div>
+
+  <div class="walk-block">
+    <div>
+      <div class="walk-heading">Lines 43–45</div>
+      <div class="walk-code">tasks <span class="op">=</span> [<span class="fn">run_inference</span>(p) <span class="kw">for</span> p <span class="kw">in</span> image_paths]
+results <span class="op">=</span> <span class="kw">await</span> <span class="fn">tqdm_asyncio.gather</span>(<span class="op">*</span>tasks)</div>
+    </div>
+    <div class="walk-explain">
+      <strong>⚡ Concurrency pattern.</strong><span class="api-badge">Async</span><br/><br/>
+      The list comprehension builds a list of <em>coroutines</em> (not yet running). <code>*tasks</code> unpacks the list as arguments. <code>tqdm_asyncio.gather</code> launches all coroutines simultaneously, waits for all of them to finish, and returns results in the same order. This is a classic async fan-out pattern.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- FILE 2: agents_custom.py -->
+  <h3 style="font-size:18px; font-weight:700; margin-bottom:16px; color:var(--text-primary)">
+    File 2: <code style="font-size:14px">agents/agents_custom.py</code>
+    <span class="agent-badge">Multi-Agent Pipeline</span>
+  </h3>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="filename">agents_custom.py — key excerpt</span>
+      <button class="copy-btn" onclick="copyCode('code2')">Copy</button>
+    </div>
+    <div class="code-scroll">
+      <pre id="code2"><div class="line agent-line"><span class="line-num">1</span><span class="line-code">classifier_agent <span class="op">=</span> <span class="cl">Agent</span>(model, instructions<span class="op">=</span><span class="str">"You are a helpful assistant."</span>, output_type<span class="op">=</span><span class="cl">DocumentCategory</span>)  <span class="cm"># Agent 1: only classifies</span></span></div><div class="line agent-line"><span class="line-num">2</span><span class="line-code">extraction_agent <span class="op">=</span> <span class="cl">Agent</span>(model, instructions<span class="op">=</span><span class="str">"You are a helpful assistant."</span>)  <span class="cm"># Agent 2: no fixed output schema — set dynamically</span></span></div><div class="line"><span class="line-num">3</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">4</span><span class="line-code">classification_to_schema <span class="op">=</span> {    <span class="cm"># Maps category string to the right Pydantic model class</span></span></div><div class="line annotated"><span class="line-num">5</span><span class="line-code">    <span class="str">"invoice"</span>: <span class="cl">Invoice</span>,</span></div><div class="line annotated"><span class="line-num">6</span><span class="line-code">    <span class="str">"payslip"</span>: <span class="cl">Payslip</span>,</span></div><div class="line annotated"><span class="line-num">7</span><span class="line-code">    <span class="str">"driver_license"</span>: <span class="cl">DriversLicense</span>,</span></div><div class="line annotated"><span class="line-num">8</span><span class="line-code">}</span></div><div class="line"><span class="line-num">9</span><span class="line-code"></span></div><div class="line agent-line"><span class="line-num">10</span><span class="line-code"><span class="kw">async def</span> <span class="fn">run_inference</span>(image_path: <span class="cl">Path</span>):</span></div><div class="line agent-line"><span class="line-num">11</span><span class="line-code">    classifier_message_parts <span class="op">=</span> [<span class="str">"Classify the type..."</span>, <span class="cl">BinaryContent</span>(...)]</span></div><div class="line agent-line"><span class="line-num">12</span><span class="line-code">    extractor_message_parts  <span class="op">=</span> [<span class="str">"Extract the structure..."</span>, <span class="cl">BinaryContent</span>(...)]</span></div><div class="line"><span class="line-num">13</span><span class="line-code"></span></div><div class="line agent-line"><span class="line-num">14</span><span class="line-code">    classifier_response <span class="op">=</span> <span class="kw">await</span> classifier_agent.<span class="fn">run</span>(classifier_message_parts)  <span class="cm"># STEP 1: classify</span></span></div><div class="line agent-line"><span class="line-num">15</span><span class="line-code">    category <span class="op">=</span> classifier_response.output.category                           <span class="cm"># Get the category string (e.g., "invoice")</span></span></div><div class="line annotated"><span class="line-num">16</span><span class="line-code">    output_type <span class="op">=</span> classification_to_schema.<span class="fn">get</span>(category)                      <span class="cm"># Dynamically pick the right schema class</span></span></div><div class="line agent-line"><span class="line-num">17</span><span class="line-code">    extraction_response <span class="op">=</span> <span class="kw">await</span> extraction_agent.<span class="fn">run</span>(extractor_message_parts, output_type<span class="op">=</span>output_type)  <span class="cm"># STEP 2: extract using dynamic schema</span></span></div><div class="line agent-line"><span class="line-num">18</span><span class="line-code">    <span class="kw">return</span> extraction_response.output</span></div></pre>
+    </div>
+  </div>
+
+  <div class="walk-block">
+    <div>
+      <div class="walk-heading">Lines 4–8 + 16–17</div>
+      <div class="walk-code">output_type <span class="op">=</span> classification_to_schema.<span class="fn">get</span>(category)
+extraction_response <span class="op">=</span> <span class="kw">await</span> extraction_agent.<span class="fn">run</span>(
+  extractor_message_parts,
+  output_type<span class="op">=</span>output_type  <span class="cm"># set at RUNTIME</span>
+)</div>
+    </div>
+    <div class="walk-explain">
+      <strong>🧠 Dynamic schema selection — the clever part.</strong><span class="agent-badge">Multi-Agent</span><br/><br/>
+      The extraction agent doesn't have a fixed schema — its <code>output_type</code> is passed in at <em>runtime</em> based on the classifier's output. This means the exact same agent produces an <code>Invoice</code> object for invoices and a <code>DriversLicense</code> object for licenses. It's a pattern called <em>late binding of schemas</em>.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- FILE 3: models/generic.py -->
+  <h3 style="font-size:18px; font-weight:700; margin-bottom:16px; color:var(--text-primary)">
+    File 3: <code style="font-size:14px">models/generic.py</code>
+    <span class="api-badge">Pydantic Schema</span>
+  </h3>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="filename">models/generic.py</span>
+      <button class="copy-btn" onclick="copyCode('code3')">Copy</button>
+    </div>
+    <div class="code-scroll">
+      <pre id="code3"><div class="line"><span class="line-num">1</span><span class="line-code"><span class="kw">from</span> <span class="fn">pydantic</span> <span class="kw">import</span> <span class="cl">BaseModel</span>, <span class="cl">Field</span></span></div><div class="line"><span class="line-num">2</span><span class="line-code"><span class="kw">from</span> <span class="fn">typing</span> <span class="kw">import</span> <span class="cl">Annotated</span>, <span class="cl">List</span></span></div><div class="line"><span class="line-num">3</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">4</span><span class="line-code"><span class="kw">class</span> <span class="cl">FileElement</span>(<span class="cl">BaseModel</span>):   <span class="cm"># BaseModel = Pydantic's base class for data validation</span></span></div><div class="line"><span class="line-num">5</span><span class="line-code">    <span class="str">"""Represents a single element on a document page."""</span></span></div><div class="line"><span class="line-num">6</span><span class="line-code">    element_type: <span class="cl">Annotated</span>[</span></div><div class="line annotated"><span class="line-num">7</span><span class="line-code">        str,</span></div><div class="line annotated"><span class="line-num">8</span><span class="line-code">        <span class="cl">Field</span>(description<span class="op">=</span><span class="str">"Type of the element found on the page"</span>, default<span class="op">=</span><span class="str">""</span>)  <span class="cm"># LLM reads 'description' as instructions</span></span></div><div class="line annotated"><span class="line-num">9</span><span class="line-code">    ]</span></div><div class="line"><span class="line-num">10</span><span class="line-code">    element_content: <span class="cl">Annotated</span>[</span></div><div class="line annotated"><span class="line-num">11</span><span class="line-code">        str,</span></div><div class="line annotated"><span class="line-num">12</span><span class="line-code">        <span class="cl">Field</span>(description<span class="op">=</span><span class="str">"Content of the element found on the page"</span>, default<span class="op">=</span><span class="str">""</span>)</span></div><div class="line annotated"><span class="line-num">13</span><span class="line-code">    ]</span></div><div class="line"><span class="line-num">14</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">15</span><span class="line-code"><span class="kw">class</span> <span class="cl">ModelAnalysisOutput</span>(<span class="cl">BaseModel</span>):   <span class="cm"># This is the TOP-LEVEL schema the agent returns</span></span></div><div class="line"><span class="line-num">16</span><span class="line-code">    <span class="str">"""Structured output from the LLM."""</span></span></div><div class="line"><span class="line-num">17</span><span class="line-code">    file_type: <span class="cl">Annotated</span>[str, <span class="cl">Field</span>(</span></div><div class="line"><span class="line-num">18</span><span class="line-code">        description<span class="op">=</span><span class="str">"Type name: invoice, internal_document, instruction, other"</span>, default<span class="op">=</span><span class="str">""</span></span></div><div class="line"><span class="line-num">19</span><span class="line-code">    )]</span></div><div class="line annotated"><span class="line-num">20</span><span class="line-code">    file_elements: <span class="cl">Annotated</span>[</span></div><div class="line annotated"><span class="line-num">21</span><span class="line-code">        list[<span class="cl">FileElement</span>],          <span class="cm"># List of nested objects — LLM must return an array of structured items</span></span></div><div class="line annotated"><span class="line-num">22</span><span class="line-code">        <span class="cl">Field</span>(description<span class="op">=</span><span class="str">"Elements: tables, images, paragraphs, graphs..."</span>)</span></div><div class="line annotated"><span class="line-num">23</span><span class="line-code">    ]</span></div><div class="line"><span class="line-num">24</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">25</span><span class="line-code"><span class="kw">class</span> <span class="cl">OCROutput</span>(<span class="cl">BaseModel</span>):   <span class="cm"># Final result combining filename + analysis</span></span></div><div class="line"><span class="line-num">26</span><span class="line-code">    filename: <span class="cl">Annotated</span>[str, <span class="cl">Field</span>(default<span class="op">=</span><span class="str">""</span>)]</span></div><div class="line"><span class="line-num">27</span><span class="line-code">    analysis_result: <span class="cl">Annotated</span>[<span class="cl">ModelAnalysisOutput</span>, <span class="cl">Field</span>(default_factory<span class="op">=</span><span class="cl">ModelAnalysisOutput</span>)]</span></div></pre>
+    </div>
+  </div>
+
+  <div class="callout purple">
+    <div class="callout-label">💡 Why Field(description=...) is so important</div>
+    <div class="callout-body">
+      The <code>description</code> argument inside <code>Field()</code> isn't just documentation for you — PydanticAI converts the entire Pydantic model into a <strong>JSON Schema</strong> and includes these descriptions as part of the LLM's prompt. The LLM literally reads "Type name: invoice, internal_document..." and uses it to decide what to put in that field. Your schema <em>is</em> your prompt.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- FILE 4: workflow.py -->
+  <h3 style="font-size:18px; font-weight:700; margin-bottom:16px; color:var(--text-primary)">
+    File 4: <code style="font-size:14px">workflow.py</code>
+    <span class="api-badge">Orchestrator</span>
+  </h3>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="filename">workflow.py</span>
+      <button class="copy-btn" onclick="copyCode('code4')">Copy</button>
+    </div>
+    <div class="code-scroll">
+      <pre id="code4"><div class="line"><span class="line-num">1</span><span class="line-code"><span class="kw">import</span> asyncio</span></div><div class="line"><span class="line-num">2</span><span class="line-code"><span class="kw">from</span> <span class="fn">tqdm.asyncio</span> <span class="kw">import</span> <span class="cl">tqdm_asyncio</span></span></div><div class="line"><span class="line-num">3</span><span class="line-code"><span class="kw">import</span> time</span></div><div class="line"><span class="line-num">4</span><span class="line-code"><span class="kw">from</span> <span class="fn">pathlib</span> <span class="kw">import</span> <span class="cl">Path</span></span></div><div class="line"><span class="line-num">5</span><span class="line-code"><span class="kw">from</span> <span class="fn">utils.utils</span> <span class="kw">import</span> <span class="fn">list_all_files</span>, <span class="fn">pdf_to_jpg</span>, <span class="fn">save_results_to_json</span></span></div><div class="line"><span class="line-num">6</span><span class="line-code"><span class="kw">from</span> <span class="fn">agents.generic_doc_agent</span> <span class="kw">import</span> <span class="fn">analyze_each_page</span></span></div><div class="line"><span class="line-num">7</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">8</span><span class="line-code"><span class="kw">async def</span> <span class="fn">extract_structure_docs</span>(pdf_dir:<span class="cl">Path</span>, temp_dir:<span class="cl">Path</span>):</span></div><div class="line"><span class="line-num">9</span><span class="line-code">    filenames <span class="op">=</span> []</span></div><div class="line"><span class="line-num">10</span><span class="line-code">    tasks <span class="op">=</span> []</span></div><div class="line"><span class="line-num">11</span><span class="line-code">    pdf_paths <span class="op">=</span> <span class="fn">list_all_files</span>(pdf_dir)  <span class="cm"># Get all PDF files in directory</span></span></div><div class="line"><span class="line-num">12</span><span class="line-code">    <span class="kw">for</span> pdf_path <span class="kw">in</span> pdf_paths:</span></div><div class="line"><span class="line-num">13</span><span class="line-code">        filenames.<span class="fn">append</span>(pdf_path)</span></div><div class="line annotated"><span class="line-num">14</span><span class="line-code">        image_paths <span class="op">=</span> <span class="fn">pdf_to_jpg</span>(pdf_path, temp_dir)    <span class="cm"># Convert PDF pages to JPEG images</span></span></div><div class="line agent-line"><span class="line-num">15</span><span class="line-code">        task <span class="op">=</span> asyncio.<span class="fn">create_task</span>(<span class="fn">analyze_each_page</span>(image_paths))  <span class="cm"># Schedule agent run immediately — doesn't wait</span></span></div><div class="line agent-line"><span class="line-num">16</span><span class="line-code">        tasks.<span class="fn">append</span>(task)</span></div><div class="line agent-line"><span class="line-num">17</span><span class="line-code">    invoices_result <span class="op">=</span> <span class="kw">await</span> <span class="fn">tqdm_asyncio.gather</span>(<span class="op">*</span>tasks)  <span class="cm"># Wait for ALL tasks to finish</span></span></div><div class="line"><span class="line-num">18</span><span class="line-code">    <span class="kw">return</span> filenames, invoices_result</span></div><div class="line"><span class="line-num">19</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">20</span><span class="line-code"><span class="kw">async def</span> <span class="fn">workflow</span>():   <span class="cm"># Master orchestrator function</span></span></div><div class="line"><span class="line-num">21</span><span class="line-code">    base_dir <span class="op">=</span> <span class="cl">Path</span>(<span class="dc">__file__</span>).parent.resolve() <span class="op">/</span> <span class="str">"data"</span></span></div><div class="line"><span class="line-num">22</span><span class="line-code">    pdf_dir <span class="op">=</span> base_dir <span class="op">/</span> <span class="str">"samples"</span></span></div><div class="line"><span class="line-num">23</span><span class="line-code">    temp_dir <span class="op">=</span> base_dir <span class="op">/</span> <span class="str">"temp_files"</span></span></div><div class="line"><span class="line-num">24</span><span class="line-code">    results_dir <span class="op">=</span> base_dir <span class="op">/</span> <span class="str">"results"</span></span></div><div class="line"><span class="line-num">25</span><span class="line-code">    results_dir.<span class="fn">mkdir</span>(exist_ok<span class="op">=</span><span class="dc">True</span>)  <span class="cm"># Create results folder if it doesn't exist</span></span></div><div class="line"><span class="line-num">26</span><span class="line-code"></span></div><div class="line"><span class="line-num">27</span><span class="line-code">    filenames, results <span class="op">=</span> <span class="kw">await</span> <span class="fn">extract_structure_docs</span>(pdf_dir, temp_dir)</span></div><div class="line"><span class="line-num">28</span><span class="line-code">    <span class="fn">save_results_to_json</span>(filenames, results, results_dir)  <span class="cm"># Persist structured JSON to disk</span></span></div><div class="line"><span class="line-num">29</span><span class="line-code"></span></div><div class="line annotated"><span class="line-num">30</span><span class="line-code"><span class="kw">if</span> __name__ <span class="op">==</span> <span class="str">"__main__"</span>:</span></div><div class="line annotated"><span class="line-num">31</span><span class="line-code">    start_time <span class="op">=</span> time.<span class="fn">perf_counter</span>()</span></div><div class="line annotated"><span class="line-num">32</span><span class="line-code">    asyncio.<span class="fn">run</span>(<span class="fn">workflow</span>())  <span class="cm"># asyncio.run() is the sync entry point that starts the async event loop</span></span></div><div class="line annotated"><span class="line-num">33</span><span class="line-code">    end_time <span class="op">=</span> time.<span class="fn">perf_counter</span>() <span class="op">-</span> start_time</span></div><div class="line annotated"><span class="line-num">34</span><span class="line-code">    <span class="fn">print</span>(<span class="dc">f</span><span class="str">"Analysis took: {end_time:.1f} seconds"</span>)</span></div></pre>
+    </div>
+  </div>
+
+  <div class="callout teal">
+    <div class="callout-label">🔑 asyncio.create_task vs asyncio.gather — what's the difference?</div>
+    <div class="callout-body">
+      <strong><code>create_task(coro)</code></strong> schedules a coroutine to start running immediately in the background — the loop continues without waiting. <strong><code>gather(*tasks)</code></strong> suspends the current coroutine until ALL scheduled tasks are complete and collects their results. Together, they implement the <em>fan-out / fan-in</em> pattern: launch many parallel workers, then collect results.
+    </div>
+  </div>
+
+</div>
+</div><!-- /tab-code -->
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!--  TAB 3: ASSESSMENT                                      -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-assess" class="tab-panel">
+<div class="container">
+  <div class="progress-bar" style="width:100%"></div>
+  <div class="section-label">Tab 03 — Assessment</div>
+  <h2 class="section-title">Test Your Understanding</h2>
+  <p class="section-sub">5 multiple-choice questions and 3 scenario challenges. Select your answers, then reveal the key when ready.</p>
+
+  <!-- MCQ 1 -->
+  <div class="q-block">
+    <div class="q-label mcq">MCQ — Question 1 of 5</div>
+    <div class="q-text">What is the PRIMARY purpose of setting <code>output_type=ModelAnalysisOutput</code> when creating a PydanticAI Agent?</div>
+    <ul class="options" id="mcq1">
+      <li onclick="selectOpt(this,'mcq1','A')" data-key="A"><span class="opt-key">A</span> It tells the LLM which language to respond in</li>
+      <li onclick="selectOpt(this,'mcq1','B')" data-key="B"><span class="opt-key">B</span> It forces the LLM's response to be validated and parsed into a typed Pydantic object</li>
+      <li onclick="selectOpt(this,'mcq1','C')" data-key="C"><span class="opt-key">C</span> It limits the number of tokens the LLM can generate</li>
+      <li onclick="selectOpt(this,'mcq1','D')" data-key="D"><span class="opt-key">D</span> It specifies which model provider to use</li>
+    </ul>
+  </div>
+
+  <!-- MCQ 2 -->
+  <div class="q-block">
+    <div class="q-label mcq">MCQ — Question 2 of 5</div>
+    <div class="q-text">Why does the code convert PDFs to JPEG images before sending them to the LLM?</div>
+    <ul class="options" id="mcq2">
+      <li onclick="selectOpt(this,'mcq2','A')" data-key="A"><span class="opt-key">A</span> JPEGs are smaller in file size, reducing API costs</li>
+      <li onclick="selectOpt(this,'mcq2','B')" data-key="B"><span class="opt-key">B</span> The LLMs used (GPT-4o, Llama 4) accept image inputs — they are multimodal vision models that cannot directly process PDF bytes</li>
+      <li onclick="selectOpt(this,'mcq2','C')" data-key="C"><span class="opt-key">C</span> JPEG images contain more text information than PDFs</li>
+      <li onclick="selectOpt(this,'mcq2','D')" data-key="D"><span class="opt-key">D</span> Python cannot read PDF binary data without conversion</li>
+    </ul>
+  </div>
+
+  <!-- MCQ 3 -->
+  <div class="q-block">
+    <div class="q-label mcq">MCQ — Question 3 of 5</div>
+    <div class="q-text">In the <code>agents_custom.py</code> multi-agent pipeline, what determines which Pydantic schema the extraction agent uses?</div>
+    <ul class="options" id="mcq3">
+      <li onclick="selectOpt(this,'mcq3','A')" data-key="A"><span class="opt-key">A</span> A hardcoded condition inside the extraction agent itself</li>
+      <li onclick="selectOpt(this,'mcq3','B')" data-key="B"><span class="opt-key">B</span> The file extension of the PDF (e.g., "invoice.pdf")</li>
+      <li onclick="selectOpt(this,'mcq3','C')" data-key="C"><span class="opt-key">C</span> The output of the classifier agent, which is used to look up the correct schema in a dictionary at runtime</li>
+      <li onclick="selectOpt(this,'mcq3','D')" data-key="D"><span class="opt-key">D</span> A random selection from available schemas</li>
+    </ul>
+  </div>
+
+  <!-- MCQ 4 -->
+  <div class="q-block">
+    <div class="q-label mcq">MCQ — Question 4 of 5</div>
+    <div class="q-text">What is the key difference between using <code>asyncio.gather(*tasks)</code> versus processing each document sequentially in a <code>for</code> loop?</div>
+    <ul class="options" id="mcq4">
+      <li onclick="selectOpt(this,'mcq4','A')" data-key="A"><span class="opt-key">A</span> <code>gather</code> uses multiple CPU threads; the for loop uses one</li>
+      <li onclick="selectOpt(this,'mcq4','B')" data-key="B"><span class="opt-key">B</span> <code>gather</code> runs all coroutines concurrently (during I/O waits), dramatically reducing total time; the for loop waits for each to finish before starting the next</li>
+      <li onclick="selectOpt(this,'mcq4','C')" data-key="C"><span class="opt-key">C</span> <code>gather</code> processes documents alphabetically</li>
+      <li onclick="selectOpt(this,'mcq4','D')" data-key="D"><span class="opt-key">D</span> There is no meaningful difference in a real-world scenario</li>
+    </ul>
+  </div>
+
+  <!-- MCQ 5 -->
+  <div class="q-block">
+    <div class="q-label mcq">MCQ — Question 5 of 5</div>
+    <div class="q-text">In <code>models/generic.py</code>, what role does <code>Field(description="...")</code> play in the interaction with the LLM?</div>
+    <ul class="options" id="mcq5">
+      <li onclick="selectOpt(this,'mcq5','A')" data-key="A"><span class="opt-key">A</span> It is purely for developer documentation and is ignored at runtime</li>
+      <li onclick="selectOpt(this,'mcq5','B')" data-key="B"><span class="opt-key">B</span> It sets a default value if the LLM fails to produce output</li>
+      <li onclick="selectOpt(this,'mcq5','C')" data-key="C"><span class="opt-key">C</span> PydanticAI converts the Pydantic model to JSON Schema, embedding these descriptions as guidance the LLM reads to understand what to put in each field</li>
+      <li onclick="selectOpt(this,'mcq5','D')" data-key="D"><span class="opt-key">D</span> It filters which fields are sent to the API to reduce payload size</li>
+    </ul>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SCENARIO 1 -->
+  <div class="q-block">
+    <div class="q-label scenario">Scenario — Question 1 of 3</div>
+    <div class="q-text">New Document Type Challenge</div>
+    <div class="scenario-box">
+      Your team wants to add support for extracting data from <strong>bank statements</strong>. The current custom pipeline only handles invoices, payslips, and driver licenses. Describe step-by-step what changes you would need to make to <code>agents_custom.py</code> and the <code>models/</code> folder to support this new document type.
+    </div>
+    <textarea class="scenario-ans" placeholder="Write your answer here..."></textarea>
+  </div>
+
+  <!-- SCENARIO 2 -->
+  <div class="q-block">
+    <div class="q-label scenario">Scenario — Question 2 of 3</div>
+    <div class="q-text">Reliability Engineering</div>
+    <div class="scenario-box">
+      During production, you notice that the generic agent sometimes returns <code>file_type: ""</code> (empty string) for unusual documents, causing downstream processing failures. Propose two different strategies to improve robustness — one involving changes to the Pydantic schema and one involving changes to the agent's instructions.
+    </div>
+    <textarea class="scenario-ans" placeholder="Write your answer here..."></textarea>
+  </div>
+
+  <!-- SCENARIO 3 -->
+  <div class="q-block">
+    <div class="q-label scenario">Scenario — Question 3 of 3</div>
+    <div class="q-text">Cost vs. Accuracy Trade-off</div>
+    <div class="scenario-box">
+      Your manager asks you to reduce LLM API costs. A colleague suggests replacing the two-agent pipeline (classify → extract) with a single agent that does both in one call. What are the potential accuracy risks of this change, and under what conditions might the single-agent approach actually be acceptable?
+    </div>
+    <textarea class="scenario-ans" placeholder="Write your answer here..."></textarea>
+  </div>
+
+  <!-- ANSWER KEY -->
+  <button class="answer-key-toggle" onclick="toggleAnswerKey()">
+    🔑 Reveal Answer Key
+  </button>
+
+  <div id="answer-key" class="answer-key">
+    <h3>🗝️ Answer Key</h3>
+
+    <div class="ans-item">
+      <div class="ans-q">MCQ 1</div>
+      <div class="ans-a"><strong>B.</strong> Setting <code>output_type</code> instructs PydanticAI to convert the Pydantic model to a JSON Schema, inject it into the system prompt, and then validate and parse the LLM's raw response into a typed Python object. If the LLM returns an invalid schema, PydanticAI can automatically retry.</div>
+    </div>
+    <div class="ans-item">
+      <div class="ans-q">MCQ 2</div>
+      <div class="ans-a"><strong>B.</strong> Vision-language models like GPT-4o and Llama 4 Scout accept image bytes (JPEG, PNG) as part of their input. They cannot natively parse PDF file format bytes. Converting to JPEG rasterizes each page into a visual representation that the model can "see" and reason about.</div>
+    </div>
+    <div class="ans-item">
+      <div class="ans-q">MCQ 3</div>
+      <div class="ans-a"><strong>C.</strong> The <code>classifier_agent</code> returns a <code>DocumentCategory</code> object. Its <code>.category</code> field (a string like <code>"invoice"</code>) is used as a dictionary key in <code>classification_to_schema</code> to dynamically retrieve the correct Pydantic model class, which is then passed as <code>output_type</code> to the extraction agent at runtime.</div>
+    </div>
+    <div class="ans-item">
+      <div class="ans-q">MCQ 4</div>
+      <div class="ans-a"><strong>B.</strong> Python's async event loop allows coroutines to yield control while waiting for I/O (like an LLM API response). <code>gather</code> exploits this: while doc1 is waiting for the LLM response, doc2, doc3... all start their API calls. Total time approximates the time of the slowest single call, not the sum of all calls.</div>
+    </div>
+    <div class="ans-item">
+      <div class="ans-q">MCQ 5</div>
+      <div class="ans-a"><strong>C.</strong> PydanticAI serializes the entire Pydantic model (including field names, types, and <code>description</code> strings) into a JSON Schema. This is embedded in the system prompt as a structural contract. The LLM reads field descriptions as natural-language instructions about what data to populate each field with.</div>
+    </div>
+
+    <div style="height:1px; background:var(--border); margin:24px 0;"></div>
+
+    <div class="ans-item">
+      <div class="ans-q">Scenario 1 — Bank Statements</div>
+      <div class="ans-a">
+        <strong>Step 1:</strong> Create <code>models/bank_statement.py</code> with a Pydantic <code>BankStatement(BaseModel)</code> class, defining fields like <code>account_number</code>, <code>bank_name</code>, <code>transactions: list[Transaction]</code>, <code>opening_balance</code>, <code>closing_balance</code>, each with descriptive <code>Field(description=...)</code>.<br/><br/>
+        <strong>Step 2:</strong> Add <code>"bank_statement"</code> as a valid value to the <code>DocumentCategory</code> enum/model in <code>models/category.py</code>.<br/><br/>
+        <strong>Step 3:</strong> Import <code>BankStatement</code> in <code>agents_custom.py</code> and add it to <code>classification_to_schema</code>: <code>"bank_statement": BankStatement</code>.<br/><br/>
+        No changes needed to the agent definitions themselves — the dynamic schema lookup handles everything else.
+      </div>
+    </div>
+
+    <div class="ans-item">
+      <div class="ans-q">Scenario 2 — Reliability Strategies</div>
+      <div class="ans-a">
+        <strong>Schema Strategy:</strong> Use a Literal type constraint for <code>file_type</code>: <code>file_type: Literal["invoice", "internal_document", "instruction", "other"]</code>. This forces the LLM to pick from a fixed set of values — Pydantic will reject any other value and trigger a retry. Add <code>"other"</code> as the designated fallback for unknown documents so downstream logic can handle them gracefully.<br/><br/>
+        <strong>Instructions Strategy:</strong> Add explicit fallback guidance to the agent's system prompt: <em>"If you cannot confidently identify the document type, always return 'other' for file_type. Never return an empty string."</em> Instructions give the LLM policy guidance before it even generates; the schema then enforces the constraint as a hard constraint.
+      </div>
+    </div>
+
+    <div class="ans-item">
+      <div class="ans-q">Scenario 3 — Cost vs. Accuracy</div>
+      <div class="ans-a">
+        <strong>Risks of single-agent approach:</strong> Task interference — when a single model must simultaneously classify AND extract, it can make errors in extraction that would have been avoided if extraction was guided by a clear category label. The model may bias its extraction toward the wrong schema if classification is uncertain. The prompt becomes more complex, increasing the chance of format errors.<br/><br/>
+        <strong>When single-agent is acceptable:</strong> (1) Documents are highly uniform and easy to classify — e.g., a pipeline that only ever processes invoices makes classification trivial. (2) The LLM being used is very capable (e.g., GPT-4o) and the document schemas are simple with few fields. (3) Cost sensitivity significantly outweighs accuracy requirements — e.g., a bulk preprocessing pipeline where some extraction errors are acceptable and can be filtered downstream. (4) Latency matters and eliminating one API round-trip is critical.
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- /tab-assess -->
+
+<script>
+// ── Tab switching ──────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── MCQ selection ──────────────────────────────────────────
+const CORRECT = { mcq1: 'B', mcq2: 'B', mcq3: 'C', mcq4: 'B', mcq5: 'C' };
+const answered = {};
+
+function selectOpt(el, group, key) {
+  if (answered[group]) return;
+  answered[group] = true;
+  const correct = CORRECT[group];
+  document.querySelectorAll('#' + group + ' li').forEach(li => {
+    const k = li.dataset.key;
+    if (k === correct) li.classList.add('correct');
+    else if (k === key && key !== correct) li.classList.add('wrong');
+    li.style.pointerEvents = 'none';
+  });
+}
+
+// ── Answer key toggle ──────────────────────────────────────
+function toggleAnswerKey() {
+  const key = document.getElementById('answer-key');
+  const btn = document.querySelector('.answer-key-toggle');
+  key.classList.toggle('open');
+  btn.textContent = key.classList.contains('open') ? '🔒 Hide Answer Key' : '🔑 Reveal Answer Key';
+}
+
+// ── Copy code ──────────────────────────────────────────────
+function copyCode(id) {
+  const pre = document.getElementById(id);
+  const text = pre.innerText.replace(/^\d+\t/gm, '');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = pre.closest('.code-wrapper').querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    btn.style.color = 'var(--teal)';
+    setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>pydantic_ai: By-Name vs By-Object — Deep Dive</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,500;0,700;1,400&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #07090f;
+    --surface:  #0d1019;
+    --surface2: #141826;
+    --border:   #1c2235;
+    --border2:  #28314d;
+    --text:     #dce4f5;
+    --muted:    #55637a;
+
+    --byname:   #f59e0b;   /* amber  — by-name */
+    --byobj:    #34d399;   /* emerald— by-object */
+    --provider: #818cf8;   /* indigo — providers */
+    --groq:     #fb7185;   /* rose   — Groq */
+    --hf:       #fbbf24;   /* yellow — HuggingFace */
+    --ollama:   #38bdf8;   /* sky    — Ollama */
+    --async:    #c084fc;   /* purple — AsyncClient */
+    --commented:#3d4f6e;   /* dim    — commented code */
+
+    --font-head: 'Manrope', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-head); line-height:1.7; overflow-x:hidden; }
+
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  /* ── NAV ── */
+  nav {
+    position:sticky; top:0; z-index:100;
+    background:rgba(7,9,15,0.94); backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--border);
+    padding:10px 36px;
+    display:flex; gap:26px; align-items:center; overflow-x:auto;
+  }
+  .nav-logo { font-family:var(--font-mono); font-size:0.78rem; font-weight:700; color:var(--byobj); margin-right:10px; white-space:nowrap; }
+  nav a { font-family:var(--font-mono); font-size:0.68rem; color:var(--muted); text-decoration:none; letter-spacing:1px; white-space:nowrap; transition:color .2s; }
+  nav a:hover { color:var(--byobj); }
+
+  /* ── HERO ── */
+  .hero {
+    padding:64px 40px 58px;
+    background:
+      radial-gradient(ellipse at 75% -10%, rgba(52,211,153,0.1) 0%, transparent 55%),
+      radial-gradient(ellipse at 15% 90%, rgba(245,158,11,0.09) 0%, transparent 50%),
+      var(--bg);
+    border-bottom:1px solid var(--border); position:relative; overflow:hidden;
+  }
+  .hero-dots {
+    position:absolute; inset:0; opacity:0.035;
+    background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .hero-eyebrow { font-family:var(--font-mono); font-size:0.7rem; color:var(--byobj); letter-spacing:4px; text-transform:uppercase; margin-bottom:14px; }
+  .hero h1 {
+    font-size:clamp(2rem,5vw,3.6rem); font-weight:800; line-height:1.08;
+    background:linear-gradient(125deg, var(--byname) 0%, #fff 45%, var(--byobj) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    margin-bottom:16px;
+  }
+  .hero p { font-size:1rem; color:var(--muted); max-width:640px; }
+  .hero-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+  .badge { font-family:var(--font-mono); font-size:0.68rem; padding:4px 13px; border-radius:20px; border:1px solid; letter-spacing:1px; }
+
+  /* ── LAYOUT ── */
+  .container { max-width:1120px; margin:0 auto; padding:0 36px; }
+  .section { padding:62px 0; border-bottom:1px solid var(--border); }
+  .section-tag { font-family:var(--font-mono); font-size:0.67rem; color:var(--byobj); letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  h2 { font-size:2rem; font-weight:800; margin-bottom:6px; }
+  h3 { font-size:1.05rem; font-weight:700; margin-bottom:9px; }
+  .subtitle { color:var(--muted); margin-bottom:34px; font-size:0.92rem; }
+
+  /* ── CARDS ── */
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; margin-top:28px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; position:relative; overflow:hidden; transition:transform .18s, border-color .18s; }
+  .card:hover { transform:translateY(-3px); }
+  .card-stripe { position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; }
+  .card-icon { font-size:1.7rem; margin-bottom:9px; }
+  .card h3 { font-size:0.98rem; margin-bottom:7px; }
+  .card p { color:var(--muted); font-size:0.86rem; }
+  .pill { display:inline-block; font-family:var(--font-mono); font-size:0.65rem; padding:2px 8px; border-radius:4px; margin-top:10px; }
+
+  /* ── CALLOUT ── */
+  .callout { border-left:4px solid var(--byobj); background:rgba(52,211,153,0.06); border-radius:0 10px 10px 0; padding:18px 22px; margin:22px 0; }
+  .callout.amber { border-color:var(--byname); background:rgba(245,158,11,0.06); }
+  .callout.purple { border-color:var(--provider); background:rgba(129,140,248,0.06); }
+  .callout.rose   { border-color:var(--groq); background:rgba(251,113,133,0.06); }
+  .callout.sky    { border-color:var(--ollama); background:rgba(56,189,248,0.06); }
+  .callout.violet { border-color:var(--async); background:rgba(192,132,252,0.06); }
+  .callout-title { font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .callout        .callout-title { color:var(--byobj); }
+  .callout.amber  .callout-title { color:var(--byname); }
+  .callout.purple .callout-title { color:var(--provider); }
+  .callout.rose   .callout-title { color:var(--groq); }
+  .callout.sky    .callout-title { color:var(--ollama); }
+  .callout.violet .callout-title { color:var(--async); }
+  .callout p { font-size:0.875rem; }
+  .callout code, p code, li code, td code {
+    font-family:var(--font-mono); background:rgba(255,255,255,0.08);
+    padding:1px 6px; border-radius:3px; font-size:0.82em; color:var(--byobj);
+  }
+
+  /* ── BIG COMPARE ── */
+  .compare-split {
+    display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:30px;
+  }
+  @media(max-width:700px){ .compare-split { grid-template-columns:1fr; } }
+  .compare-side {
+    background:var(--surface); border:2px solid var(--border);
+    border-radius:16px; padding:28px; position:relative; overflow:hidden;
+  }
+  .compare-side.name-side { border-color:rgba(245,158,11,0.45); }
+  .compare-side.obj-side  { border-color:rgba(52,211,153,0.45); }
+  .compare-side::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:16px 16px 0 0;
+  }
+  .compare-side.name-side::before { background:var(--byname); }
+  .compare-side.obj-side::before  { background:var(--byobj); }
+  .compare-heading { font-size:1.15rem; font-weight:800; margin-bottom:6px; }
+  .compare-file { font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); margin-bottom:18px; }
+  .compare-row { display:flex; gap:10px; align-items:flex-start; margin-bottom:12px; }
+  .compare-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:6px; }
+  .compare-text { font-size:0.875rem; color:var(--text); }
+  .compare-sub  { font-size:0.8rem; color:var(--muted); margin-top:2px; }
+
+  /* ── PROVIDER ARCH ── */
+  .arch-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; overflow-x:auto; }
+  .arch-row { display:flex; align-items:center; gap:0; min-width:700px; }
+  .arch-box { background:var(--surface2); border:2px solid var(--border); border-radius:12px; padding:14px 18px; text-align:center; min-width:120px; }
+  .arch-box .ab-icon { font-size:1.5rem; }
+  .arch-box .ab-label { font-size:0.72rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-top:5px; }
+  .arch-box .ab-sub { font-family:var(--font-mono); font-size:0.6rem; color:var(--muted); margin-top:3px; }
+  .arch-box.hl-byname { border-color:var(--byname); background:rgba(245,158,11,0.1); }
+  .arch-box.hl-byobj  { border-color:var(--byobj);  background:rgba(52,211,153,0.08); }
+  .arch-box.hl-prov   { border-color:var(--provider); background:rgba(129,140,248,0.08); }
+  .arch-arrow { display:flex; flex-direction:column; align-items:center; padding:0 8px; gap:3px; }
+  .arrow-line { width:44px; height:2px; background:linear-gradient(90deg,var(--byname),var(--byobj)); position:relative; }
+  .arrow-line::after { content:'▶'; position:absolute; right:-8px; top:-7px; font-size:0.78rem; color:var(--byobj); }
+  .arrow-label { font-family:var(--font-mono); font-size:0.58rem; color:var(--muted); white-space:nowrap; }
+
+  /* ── PROVIDER TABLE ── */
+  .provider-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin-top:28px; }
+  .pcard { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; transition:transform .18s; }
+  .pcard:hover { transform:translateY(-2px); }
+  .pcard-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .pcard-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .pcard-name { font-family:var(--font-mono); font-size:0.82rem; font-weight:700; }
+  .pcard-file { font-family:var(--font-mono); font-size:0.65rem; color:var(--muted); margin-left:auto; }
+  .pcard-model { font-family:var(--font-mono); font-size:0.73rem; background:var(--surface2); padding:7px 12px; border-radius:6px; margin-bottom:10px; color:var(--byobj); }
+  .pcard-desc { font-size:0.845rem; color:var(--muted); line-height:1.55; }
+  .tag-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .tag { font-family:var(--font-mono); font-size:0.62rem; padding:2px 8px; border-radius:4px; }
+
+  /* ── FLOW ── */
+  .flow { display:flex; flex-direction:column; margin-top:24px; }
+  .flow-step { display:flex; align-items:flex-start; gap:16px; position:relative; }
+  .flow-step:not(:last-child)::after { content:''; position:absolute; left:17px; top:38px; width:2px; height:40px; background:linear-gradient(180deg,var(--byobj),transparent); }
+  .flow-num { width:36px; height:36px; border-radius:50%; background:rgba(52,211,153,0.12); border:2px solid var(--byobj); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--byobj); flex-shrink:0; }
+  .flow-body { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:13px 17px; margin-bottom:38px; flex:1; }
+  .flow-body h4 { font-size:0.92rem; margin-bottom:4px; }
+  .flow-body p { font-size:0.83rem; color:var(--muted); }
+
+  /* ── CODE ── */
+  .code-file-header { display:flex; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; padding:11px 18px; }
+  .dots { display:flex; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g{background:#28c840;}
+  .code-file-name { font-family:var(--font-mono); font-size:0.74rem; color:var(--muted); }
+  .file-badge { margin-left:auto; font-family:var(--font-mono); font-size:0.63rem; padding:3px 10px; border-radius:20px; border:1px solid; }
+  pre { background:#040508; border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:24px; overflow-x:auto; font-family:var(--font-mono); font-size:0.8rem; line-height:1.88; margin-bottom:30px; }
+
+  /* Syntax */
+  .kw  { color:#ff79c6; }
+  .fn  { color:#50fa7b; }
+  .str { color:#f1fa8c; }
+  .cm  { color:#3e4f6e; font-style:italic; }
+  .cls { color:#8be9fd; }
+  .num { color:#bd93f9; }
+  .var { color:#f8f8f2; }
+  .attr{ color:#ffb86c; }
+  .byname-col { color:var(--byname); }
+  .byobj-col  { color:var(--byobj); }
+  .prov-col   { color:var(--provider); }
+  .groq-col   { color:var(--groq); }
+  .hf-col     { color:var(--hf); }
+  .olla-col   { color:var(--ollama); }
+  .async-col  { color:var(--async); }
+  /* Commented-out blocks */
+  .cm-block { color:var(--commented); font-style:italic; }
+
+  /* ── DECISION TREE ── */
+  .dtree { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; }
+  .dt-question { background:var(--surface2); border:2px solid var(--border2); border-radius:10px; padding:14px 20px; text-align:center; font-weight:700; font-size:0.92rem; margin-bottom:20px; display:inline-block; }
+  .dt-row { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; }
+  .dt-branch { flex:1; min-width:220px; }
+  .dt-cond { font-family:var(--font-mono); font-size:0.7rem; padding:4px 12px; border-radius:20px; margin-bottom:10px; display:inline-block; }
+  .dt-yes { background:rgba(52,211,153,0.15); color:var(--byobj); border:1px solid var(--byobj); }
+  .dt-no  { background:rgba(245,158,11,0.15); color:var(--byname); border:1px solid var(--byname); }
+  .dt-result { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px 18px; }
+  .dt-result h4 { font-size:0.9rem; margin-bottom:6px; }
+  .dt-result p { font-size:0.82rem; color:var(--muted); }
+
+  /* ── TABLE ── */
+  table { width:100%; border-collapse:collapse; font-size:0.83rem; margin-top:22px; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); border-bottom:2px solid var(--border); }
+  td { padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:hover td { background:rgba(255,255,255,0.015); }
+  .td-y { color:var(--byobj); } .td-n { color:var(--groq); } .td-m { color:var(--byname); }
+
+  .footer { padding:40px; text-align:center; color:var(--muted); font-family:var(--font-mono); font-size:0.72rem; border-top:1px solid var(--border); }
+
+  @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .section { animation:fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo">⚡ GenAI Mentor</span>
+  <a href="#concepts">Concepts</a>
+  <a href="#compare">By-Name vs By-Object</a>
+  <a href="#providers">Providers Deep Dive</a>
+  <a href="#commented">Commented Blocks</a>
+  <a href="#code">Annotated Code</a>
+  <a href="#when">When to Use What</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-dots"></div>
+  <div class="container">
+    <div class="hero-eyebrow">Week 3 — pydantic_ai: Two Ways to Build an Agent</div>
+    <h1>By-Name vs By-Object<br/>Model Instantiation</h1>
+    <p>Two files — same result. But one gives you a <strong>simple string</strong>, the other gives you full control over <strong>providers, API keys, timeouts, HTTP clients, and custom backends</strong>. When you outgrow shortcuts, you need objects.</p>
+    <div class="hero-badges">
+      <span class="badge" style="color:var(--byname);border-color:var(--byname)">by-name.py</span>
+      <span class="badge" style="color:var(--byobj);border-color:var(--byobj)">by-object.py</span>
+      <span class="badge" style="color:var(--provider);border-color:var(--provider)">GroqProvider</span>
+      <span class="badge" style="color:var(--hf);border-color:var(--hf)">HuggingFace</span>
+      <span class="badge" style="color:var(--ollama);border-color:var(--ollama)">OllamaProvider</span>
+      <span class="badge" style="color:var(--async);border-color:var(--async)">AsyncClient</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 1 — CORE CONCEPTS ══════════ -->
+<div class="section" id="concepts">
+  <div class="container">
+    <div class="section-tag">Section 01</div>
+    <h2>Core Concepts</h2>
+    <p class="subtitle">New ideas introduced in these two files that go beyond the Week 1 basics.</p>
+
+    <div class="cards-grid">
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--byname)"></div>
+        <div class="card-icon">🏷️</div>
+        <h3>Model by Name (String)</h3>
+        <p>Pass a <code>'provider:model'</code> string to <code>Agent()</code>. pydantic_ai resolves everything automatically: finds the right class, reads API keys from environment, creates an HTTP client. Fast and clean for development.</p>
+        <span class="pill" style="background:rgba(245,158,11,0.12);color:var(--byname)">zero config, great for prototyping</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--byobj)"></div>
+        <div class="card-icon">🏗️</div>
+        <h3>Model by Object (Instance)</h3>
+        <p>Explicitly construct a <code>GroqModel(...)</code> or <code>OpenAIChatModel(...)</code> instance and pass it to <code>Agent()</code>. You control every detail: custom provider, API key source, HTTP config, timeout. Use this in production.</p>
+        <span class="pill" style="background:rgba(52,211,153,0.12);color:var(--byobj)">full control, production-ready</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--provider)"></div>
+        <div class="card-icon">🔌</div>
+        <h3>Provider Object</h3>
+        <p>A <strong>Provider</strong> (e.g. <code>GroqProvider</code>, <code>OllamaProvider</code>) is a separate object that handles <em>how to connect</em> to the backend — API key, base URL, HTTP client. Models and providers are decoupled so you can mix and match.</p>
+        <span class="pill" style="background:rgba(129,140,248,0.12);color:var(--provider)">auth + transport layer</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--async)"></div>
+        <div class="card-icon">⚙️</div>
+        <h3>AsyncClient (Custom HTTP)</h3>
+        <p>The Groq SDK's <code>AsyncClient</code> lets you customise the HTTP connection: set <strong>timeouts</strong>, retry logic, proxies, or connection pooling. Pass it into a provider to override the default HTTP behaviour.</p>
+        <span class="pill" style="background:rgba(192,132,252,0.12);color:var(--async)">timeout / proxy / retry control</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--hf)"></div>
+        <div class="card-icon">🤗</div>
+        <h3>HuggingFace + Novita</h3>
+        <p><code>HuggingFaceModel</code> + <code>HuggingFaceProvider</code> lets you call any model on HuggingFace Inference API. The <code>provider_name='novita'</code> parameter routes through <strong>Novita</strong>, a cloud that hosts HF models cheaply.</p>
+        <span class="pill" style="background:rgba(251,191,36,0.12);color:var(--hf)">HF_TOKEN required</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--ollama)"></div>
+        <div class="card-icon">🦙</div>
+        <h3>OpenAIChatModel + OllamaProvider</h3>
+        <p>Ollama exposes an <strong>OpenAI-compatible REST API</strong> at <code>/v1</code>. So you use <code>OpenAIChatModel</code> (not an Ollama-specific class) and point it at localhost with <code>OllamaProvider</code>. This pattern works for <em>any</em> OpenAI-compatible local server.</p>
+        <span class="pill" style="background:rgba(56,189,248,0.12);color:var(--ollama)">OpenAI-compatible API trick</span>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:32px">
+      <div class="callout-title">💡 The Big Idea Across Both Files</div>
+      <p><code>by-name.py</code> is what you write on Day 1. <code>by-object.py</code> is what your code evolves into when you need production reliability — custom timeouts so your app doesn't hang, explicit key injection for security, or switching providers without changing environment variables. Same Agent, same output, completely different level of control.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 2 — SIDE-BY-SIDE COMPARE ══════════ -->
+<div class="section" id="compare">
+  <div class="container">
+    <div class="section-tag">Section 02</div>
+    <h2>By-Name vs By-Object — Side by Side</h2>
+    <p class="subtitle">The same Groq LLaMA 3.3 70B call, two completely different approaches.</p>
+
+    <div class="compare-split">
+      <!-- BY NAME -->
+      <div class="compare-side name-side">
+        <div class="compare-heading" style="color:var(--byname)">🏷️ By Name</div>
+        <div class="compare-file">by-name.py</div>
+
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Just one import: <code>Agent</code></div>
+            <div class="compare-sub">No model or provider imports needed</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Model is a magic string: <code>'groq:llama-3.3-70b-versatile'</code></div>
+            <div class="compare-sub">pydantic_ai parses this and figures the rest out</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">API key comes from <code>os.environ</code> automatically</div>
+            <div class="compare-sub">Reads <code>GROQ_API_KEY</code> without you specifying</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--groq)"></div>
+          <div>
+            <div class="compare-text">No control over HTTP client, timeout, retries</div>
+            <div class="compare-sub">Defaults only — fine for prototyping, risky in prod</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--groq)"></div>
+          <div>
+            <div class="compare-text">Can't swap providers at runtime without changing the string</div>
+            <div class="compare-sub">Less flexible for dynamic routing</div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;background:var(--surface2);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:0.75rem">
+          <span style="color:var(--muted)"># The entire model config</span><br/>
+          <span style="color:var(--byname)">Agent</span>(<span style="color:var(--str)">'groq:llama-3.3-70b-versatile'</span>, ...)
+        </div>
+      </div>
+
+      <!-- BY OBJECT -->
+      <div class="compare-side obj-side">
+        <div class="compare-heading" style="color:var(--byobj)">🏗️ By Object</div>
+        <div class="compare-file">by-object.py</div>
+
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Many explicit imports: <code>GroqModel</code>, <code>GroqProvider</code>, etc.</div>
+            <div class="compare-sub">Each class has a specific role — model vs transport</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Model and Provider are separate, composable objects</div>
+            <div class="compare-sub">Mix any model with any provider programmatically</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Explicit API key: <code>api_key=os.getenv('GROQ_API_KEY')</code></div>
+            <div class="compare-sub">Auditable — you can see exactly where the key comes from</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Custom <code>AsyncClient(timeout=30)</code> — no hanging requests</div>
+            <div class="compare-sub">If LLM takes &gt;30s → exception, not an infinite wait</div>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-dot" style="background:var(--byobj)"></div>
+          <div>
+            <div class="compare-text">Supports exotic backends: HuggingFace/Novita, Ollama via OpenAI compat</div>
+            <div class="compare-sub">The string approach can't reach these</div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;background:var(--surface2);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:0.75rem">
+          <span style="color:var(--muted)"># The same config, explicit form</span><br/>
+          <span style="color:var(--provider)">model</span> = <span style="color:var(--byobj)">GroqModel</span>(<span style="color:var(--str)">'llama-3.3-70b-versatile'</span>,<br/>
+          &nbsp;&nbsp;<span style="color:var(--attr)">provider</span>=<span style="color:var(--byobj)">GroqProvider</span>(<span style="color:var(--attr)">api_key</span>=...))<br/>
+          <span style="color:var(--byname)">Agent</span>(<span style="color:var(--provider)">model</span>, ...)
+        </div>
+      </div>
+    </div>
+
+    <!-- ARCH DIAGRAM -->
+    <div class="arch-wrap" style="margin-top:32px">
+      <div style="font-family:var(--font-mono);font-size:0.67rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:22px">Architecture: How Model + Provider Fit Together</div>
+      <div class="arch-row">
+        <div class="arch-box hl-byname">
+          <div class="ab-icon">🏷️</div>
+          <div class="ab-label" style="color:var(--byname)">String</div>
+          <div class="ab-sub">'groq:llama-3.3-70b'</div>
+        </div>
+        <div class="arch-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-label">parsed by</div>
+        </div>
+        <div class="arch-box" style="border-color:var(--border2)">
+          <div class="ab-icon">🧩</div>
+          <div class="ab-label">pydantic_ai</div>
+          <div class="ab-sub">model resolver</div>
+        </div>
+        <div class="arch-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-label">creates</div>
+        </div>
+        <div class="arch-box hl-byobj">
+          <div class="ab-icon">📦</div>
+          <div class="ab-label" style="color:var(--byobj)">GroqModel</div>
+          <div class="ab-sub">model object</div>
+        </div>
+        <div class="arch-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-label">uses</div>
+        </div>
+        <div class="arch-box hl-prov">
+          <div class="ab-icon">🔌</div>
+          <div class="ab-label" style="color:var(--provider)">GroqProvider</div>
+          <div class="ab-sub">key + http client</div>
+        </div>
+        <div class="arch-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-label">calls</div>
+        </div>
+        <div class="arch-box">
+          <div class="ab-icon">☁️</div>
+          <div class="ab-label">api.groq.com</div>
+          <div class="ab-sub">HTTPS endpoint</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">
+        By-name: pydantic_ai creates GroqModel + GroqProvider for you (with defaults). By-object: you create both yourself.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 3 — PROVIDERS DEEP DIVE ══════════ -->
+<div class="section" id="providers">
+  <div class="container">
+    <div class="section-tag">Section 03</div>
+    <h2>Providers Deep Dive</h2>
+    <p class="subtitle">Four different backends used (or prepared) in <code>by-object.py</code>, each with a distinct purpose.</p>
+
+    <div class="provider-cards">
+
+      <!-- GROQ SIMPLE -->
+      <div class="pcard" style="border-color:rgba(251,113,133,0.3)">
+        <div class="pcard-head">
+          <div class="pcard-dot" style="background:var(--groq)"></div>
+          <span class="pcard-name" style="color:var(--groq)">GroqModel (simple)</span>
+          <span class="pcard-file">active</span>
+        </div>
+        <div class="pcard-model">GroqModel('llama-3.3-70b-versatile')</div>
+        <p class="pcard-desc">The simplest by-object form. No provider argument — pydantic_ai auto-creates a <code>GroqProvider</code> using <code>GROQ_API_KEY</code> from env. One step above by-name: you get a typed object, but still no manual config.</p>
+        <div class="tag-row">
+          <span class="tag" style="background:rgba(251,113,133,0.12);color:var(--groq)">ACTIVE IN CODE</span>
+          <span class="tag" style="background:rgba(52,211,153,0.1);color:var(--byobj)">AUTO-PROVIDER</span>
+        </div>
+      </div>
+
+      <!-- GROQ EXPLICIT -->
+      <div class="pcard" style="border-color:rgba(129,140,248,0.3)">
+        <div class="pcard-head">
+          <div class="pcard-dot" style="background:var(--provider)"></div>
+          <span class="pcard-name" style="color:var(--provider)">GroqModel + GroqProvider</span>
+          <span class="pcard-file"># commented</span>
+        </div>
+        <div class="pcard-model">GroqProvider(api_key=os.getenv('GROQ_API_KEY'))</div>
+        <p class="pcard-desc">Explicitly passes the API key into the provider. Useful when key comes from a vault, a database, or a per-user dynamic source — not just a static env var. Makes the auth flow auditable and testable.</p>
+        <div class="tag-row">
+          <span class="tag" style="background:rgba(55,65,81,0.5);color:var(--muted)">COMMENTED OUT</span>
+          <span class="tag" style="background:rgba(129,140,248,0.1);color:var(--provider)">EXPLICIT KEY</span>
+        </div>
+      </div>
+
+      <!-- ASYNC CLIENT -->
+      <div class="pcard" style="border-color:rgba(192,132,252,0.3)">
+        <div class="pcard-head">
+          <div class="pcard-dot" style="background:var(--async)"></div>
+          <span class="pcard-name" style="color:var(--async)">GroqProvider + AsyncClient</span>
+          <span class="pcard-file"># commented</span>
+        </div>
+        <div class="pcard-model">AsyncClient(timeout=30)</div>
+        <p class="pcard-desc">The most powerful Groq config. <code>AsyncClient</code> is Groq's own async HTTP client. <code>timeout=30</code> means: if the LLM doesn't respond within 30 seconds, raise a timeout exception. Critical for production APIs where hanging is worse than failing.</p>
+        <div class="tag-row">
+          <span class="tag" style="background:rgba(55,65,81,0.5);color:var(--muted)">COMMENTED OUT</span>
+          <span class="tag" style="background:rgba(192,132,252,0.1);color:var(--async)">TIMEOUT CONTROL</span>
+        </div>
+      </div>
+
+      <!-- HUGGINGFACE -->
+      <div class="pcard" style="border-color:rgba(251,191,36,0.3)">
+        <div class="pcard-head">
+          <div class="pcard-dot" style="background:var(--hf)"></div>
+          <span class="pcard-name" style="color:var(--hf)">HuggingFaceModel + Novita</span>
+          <span class="pcard-file"># commented</span>
+        </div>
+        <div class="pcard-model">HuggingFaceModel('Qwen/Qwen3.5-35B-A3B')</div>
+        <p class="pcard-desc">Calls a HuggingFace model (<strong>Qwen3.5 35B MoE</strong>) via <strong>Novita</strong> — a cheap GPU cloud that hosts HF models with an API. <code>provider_name='novita'</code> tells HuggingFaceProvider to route to Novita's endpoint instead of HF's own servers.</p>
+        <div class="tag-row">
+          <span class="tag" style="background:rgba(55,65,81,0.5);color:var(--muted)">COMMENTED OUT</span>
+          <span class="tag" style="background:rgba(251,191,36,0.1);color:var(--hf)">HF_TOKEN</span>
+          <span class="tag" style="background:rgba(251,191,36,0.1);color:var(--hf)">NOVITA CLOUD</span>
+        </div>
+      </div>
+
+      <!-- OLLAMA -->
+      <div class="pcard" style="border-color:rgba(56,189,248,0.3)">
+        <div class="pcard-head">
+          <div class="pcard-dot" style="background:var(--ollama)"></div>
+          <span class="pcard-name" style="color:var(--ollama)">OpenAIChatModel + OllamaProvider</span>
+          <span class="pcard-file"># commented</span>
+        </div>
+        <div class="pcard-model">OllamaProvider(base_url='http://localhost:11434/v1')</div>
+        <p class="pcard-desc">The clever one. Ollama mimics OpenAI's API format at <code>/v1</code>. So you use <code>OpenAIChatModel</code> (not a dedicated Ollama class) and override the base URL. This pattern works with <em>any</em> local server that speaks the OpenAI API spec (LM Studio, llama.cpp, vLLM, etc.).</p>
+        <div class="tag-row">
+          <span class="tag" style="background:rgba(55,65,81,0.5);color:var(--muted)">COMMENTED OUT</span>
+          <span class="tag" style="background:rgba(56,189,248,0.1);color:var(--ollama)">LOCAL</span>
+          <span class="tag" style="background:rgba(56,189,248,0.1);color:var(--ollama)">OPENAI-COMPAT</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout sky" style="margin-top:28px">
+      <div class="callout-title">🔑 The OpenAI-Compatible API Pattern</div>
+      <p>This is huge in the local LLM ecosystem. <strong>OpenAI's API format</strong> (POST to <code>/v1/chat/completions</code> with messages array) has become the industry standard. Ollama, LM Studio, llama.cpp, vLLM, and many others implement it. That means pydantic_ai's <code>OpenAIChatModel</code> works with ALL of them — just swap the <code>base_url</code>. No custom code needed per platform.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 4 — COMMENTED CODE BLOCKS ══════════ -->
+<div class="section" id="commented">
+  <div class="container">
+    <div class="section-tag">Section 04</div>
+    <h2>Understanding the Commented-Out Blocks</h2>
+    <p class="subtitle">The grayed lines in <code>by-object.py</code> aren't dead code — they're a <em>recipe book</em> your mentor left for you.</p>
+
+    <div class="callout amber">
+      <div class="callout-title">📖 Why Commented Code Matters Here</div>
+      <p>In production GenAI codebases, you'll often see commented alternatives next to active code. They show: <strong>(1)</strong> what the current code replaced, <strong>(2)</strong> how to escalate if the simple version breaks, and <strong>(3)</strong> alternative backends you can swap in. Reading these comments teaches you the progression from simple to complex.</p>
+    </div>
+
+    <div style="margin-top:28px">
+      <h3 style="margin-bottom:16px">Progression: 3 levels of Groq model config</h3>
+      <div class="flow">
+
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4 style="color:var(--byobj)">Level 1 — Minimal (active)</h4>
+            <p><code>GroqModel('llama-3.3-70b-versatile')</code> — Name only. pydantic_ai auto-creates a provider using env vars. Use when: prototyping, local dev, you trust env var setup.</p>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4 style="color:var(--provider)">Level 2 — Explicit Key (commented)</h4>
+            <p><code>GroqModel('...', provider=GroqProvider(api_key=os.getenv('GROQ_API_KEY')))</code> — You control where the key comes from. Use when: multi-tenant apps, testing with different keys, reading from secrets manager.</p>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4 style="color:var(--async)">Level 3 — Custom HTTP Client (commented)</h4>
+            <p><code>AsyncClient(timeout=30)</code> injected into <code>GroqProvider</code>. Use when: production APIs where you need timeout guarantees, retry logic, proxy support, or connection pooling. Never leave an LLM call without a timeout in production.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 5 — ANNOTATED CODE ══════════ -->
+<div class="section" id="code">
+  <div class="container">
+    <div class="section-tag">Section 05</div>
+    <h2>Commented Code</h2>
+    <p class="subtitle">Both files — every line explained, including the grayed-out blocks.</p>
+
+    <!-- BY-NAME FILE -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">by-name.py</span>
+      <span class="file-badge" style="color:var(--byname);border-color:var(--byname)">MODEL BY STRING</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">dotenv</span> <span class="kw">import</span> <span class="fn">load_dotenv</span>
+<span class="kw">from</span> <span class="cls">pydantic_ai</span> <span class="kw">import</span> <span class="cls">Agent</span>
+<span class="cm"># Minimal imports — only Agent is needed for the by-name approach.
+# No model classes, no provider classes. That's the whole point.</span>
+
+<span class="fn">load_dotenv</span>(<span class="attr">override</span>=<span class="kw">True</span>)
+<span class="cm"># Loads .env file → all API keys (GROQ_API_KEY, OPENAI_API_KEY etc.)
+# go into os.environ so pydantic_ai can find them automatically.</span>
+
+<span class="var">agent</span> = <span class="cls">Agent</span>(
+    <span class="cm">#'ollama:llama3-groq-tool-use:8b',       ← local Ollama (commented)</span>
+    <span class="byname-col">'groq:llama-3.3-70b-versatile'</span>,           <span class="cm"># ← currently ACTIVE</span>
+    <span class="cm">    # Format: 'provider_prefix:model_name'
+    # pydantic_ai's model resolver reads this string, splits on ':',
+    # maps 'groq' → GroqModel class, reads GROQ_API_KEY from env.
+    # This is a convenience shortcut — no model object needed.</span>
+
+    <span class="cm">#"github:deepseek/DeepSeek-R1",           ← GitHub Models (commented)
+    #'openrouter:deepseek/deepseek-v3.2',    ← OpenRouter (commented)
+    #'openai:gpt-4o-mini',                   ← OpenAI (commented)
+    #'google-gla:gemini-3-pro-preview',      ← Gemini (commented)</span>
+
+    <span class="cm">    # All these commented lines show you how to SWAP models.
+    # To switch: comment the active line, uncomment another.
+    # Zero other code changes needed — same by-name pattern.
+    # This is the key advantage of the string approach for experimentation.</span>
+
+    <span class="attr">instructions</span>=<span class="str">"You are a helpful assistant."</span>,
+    <span class="cm">    # System prompt — sent before every user message</span>
+)
+
+<span class="var">response</span> = <span class="var">agent</span>.<span class="fn">run_sync</span>(<span class="str">"Write a haiku about recursion in programming."</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="attr">output</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="fn">usage</span>())
+
+<span class="var">response</span> = <span class="var">agent</span>.<span class="fn">run_sync</span>(<span class="str">"list top 3 generative models for reasoning"</span>)
+<span class="cm"># New question — open-ended, opinionated answer from the LLM.
+# Note: stateless — the LLM does NOT remember the haiku from above.</span>
+<span class="fn">print</span>(<span class="var">response</span>.<span class="attr">output</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="fn">usage</span>())</pre>
+
+    <!-- BY-OBJECT FILE -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">by-object.py</span>
+      <span class="file-badge" style="color:var(--byobj);border-color:var(--byobj)">MODEL BY INSTANCE · FULL CONTROL</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">dotenv</span> <span class="kw">import</span> <span class="fn">load_dotenv</span>
+
+<span class="kw">from</span> <span class="cls">groq</span> <span class="kw">import</span> <span class="cls">AsyncClient</span>
+<span class="cm"># Groq's official Python SDK's async HTTP client.
+# Lets you configure: timeout, retries, proxies, custom headers.
+# NOT pydantic_ai — this is the raw Groq SDK being used here.</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai</span> <span class="kw">import</span> <span class="cls">Agent</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai.models.groq</span> <span class="kw">import</span> <span class="cls">GroqModel</span>
+<span class="cm"># The pydantic_ai wrapper class for Groq models.
+# Handles: message formatting, streaming, structured output parsing for Groq.</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai.models.huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceModel</span>
+<span class="cm"># Wrapper for any HuggingFace Inference API model.
+# Works with HF's own servers OR third-party providers like Novita.</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai.providers.huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceProvider</span>
+<span class="cm"># Handles auth and routing for HuggingFace calls.
+# provider_name= lets you route to a specific inference backend (novita, etc.)</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai.providers.groq</span> <span class="kw">import</span> <span class="cls">GroqProvider</span>
+<span class="cm"># Handles auth and HTTP transport for Groq calls.
+# Can accept a raw AsyncClient for full HTTP customization.</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai.models.openai</span> <span class="kw">import</span> <span class="cls">OpenAIChatModel</span>
+<span class="cm"># pydantic_ai's OpenAI-compatible model wrapper.
+# Works with OpenAI AND any other server that follows OpenAI's API spec!</span>
+
+<span class="kw">from</span> <span class="cls">pydantic_ai.providers.ollama</span> <span class="kw">import</span> <span class="cls">OllamaProvider</span>
+<span class="cm"># Provider that points to a local Ollama server.
+# Sets base_url to localhost so OpenAIChatModel calls go to your machine.</span>
+
+<span class="kw">import</span> <span class="cls">os</span>
+<span class="cm"># Used for os.getenv() — explicitly reading env vars when needed</span>
+
+
+<span class="fn">load_dotenv</span>(<span class="attr">override</span>=<span class="kw">True</span>)
+
+
+<span class="cm"># ─── OPTION 1 (ACTIVE): GroqModel — minimal, auto-provider ────────────────</span>
+<span class="var">model</span> = <span class="cls">GroqModel</span>(<span class="str">'llama-3.3-70b-versatile'</span>)
+<span class="cm"># Most concise by-object form.
+# pydantic_ai internally creates GroqProvider(api_key=os.getenv('GROQ_API_KEY'))
+# You get the typed object, but still rely on env var discovery.
+# Step up from by-name: now 'model' is a real Python object you can inspect.</span>
+
+
+<span class="cm"># ─── OPTION 2 (commented): Explicit API key ────────────────────────────────</span>
+<span class="cm-block">#model = GroqModel('llama-3.3-70b-versatile', provider=GroqProvider(api_key=os.getenv('GROQ_API_KEY')))</span>
+<span class="cm"># GroqProvider(api_key=...) — you control EXACTLY where the key comes from.
+# os.getenv() reads GROQ_API_KEY from env (could be from .env or system).
+# USE THIS WHEN:
+#   - Multi-tenant: different users have different keys
+#   - Keys come from AWS Secrets Manager, HashiCorp Vault, etc.
+#   - You need to rotate keys at runtime without restarting the app
+#   - You want explicit, auditable auth (good for compliance)</span>
+
+
+<span class="cm"># ─── OPTION 3 (commented): Custom HTTP client with timeout ────────────────</span>
+<span class="cm-block"># custom_http_client = AsyncClient(timeout=30)</span>
+<span class="cm"># AsyncClient from the groq SDK (NOT pydantic_ai).
+# timeout=30 → if LLM takes more than 30 seconds, raise TimeoutError.
+# Without this, a slow LLM call can hang your app FOREVER.
+# In production APIs, an infinite hang is catastrophic — always set timeouts!</span>
+
+<span class="cm-block"># model = GroqModel(
+#     'llama-3.3-70b-versatile',
+#     provider=GroqProvider(api_key=os.getenv('GROQ_API_KEY'), http_client=custom_http_client),
+# )</span>
+<span class="cm"># Full production config:
+#   - Explicit API key source
+#   - Custom HTTP client injected into GroqProvider
+#   - 30-second hard timeout on all LLM calls
+# The http_client kwarg passes your custom AsyncClient INTO GroqProvider,
+# replacing its default internal client.</span>
+
+
+<span class="cm"># ─── OPTION 4 (commented): HuggingFace model via Novita ──────────────────</span>
+<span class="cm-block">#model = HuggingFaceModel('Qwen/Qwen3.5-35B-A3B', provider=HuggingFaceProvider(api_key=os.getenv('HF_TOKEN'), provider_name='novita'))</span>
+<span class="cm"># HuggingFaceModel('Qwen/Qwen3.5-35B-A3B')
+#   'Qwen/Qwen3.5-35B-A3B' = HuggingFace model repo ID (org/model-name format)
+#   Qwen3.5 35B is a Mixture-of-Experts model from Alibaba (35B total, ~3B active)
+#
+# HuggingFaceProvider(api_key=os.getenv('HF_TOKEN'), provider_name='novita')
+#   api_key → your HuggingFace User Access Token (not GROQ_API_KEY!)
+#   provider_name='novita' → route to Novita GPU cloud instead of HF servers
+#   Novita is cheaper for large model inference than HF's own Inference API</span>
+
+
+<span class="cm"># ─── OPTION 5 (commented): Local Ollama via OpenAI-compatible API ─────────</span>
+<span class="cm-block"># ollama_model = OpenAIChatModel(
+#     'llama3-groq-tool-use:8b',
+#     provider=OllamaProvider(base_url='http://localhost:11434/v1'),  
+# )</span>
+<span class="cm"># OpenAIChatModel → this is pydantic_ai's OpenAI model class.
+# 'llama3-groq-tool-use:8b' → an Ollama model that was fine-tuned for tool use
+# OllamaProvider(base_url='http://localhost:11434/v1')
+#   → /v1 path = Ollama's OpenAI-compatible API endpoint
+# KEY INSIGHT: Ollama speaks the OpenAI API format at /v1.
+# So pydantic_ai's OpenAIChatModel works with it — no special Ollama class needed.
+# This pattern applies to: LM Studio, vLLM, llama.cpp server, Localai, etc.
+# Note: variable is named 'ollama_model' not 'model' — so this isn't used
+# by the Agent below even if uncommented (bug/todo in the code)</span>
+
+
+<span class="cm"># ─── AGENT CREATION ───────────────────────────────────────────────────────</span>
+<span class="var">agent</span> = <span class="cls">Agent</span>(
+    <span class="var">model</span>,
+    <span class="cm">    # Passing the MODEL OBJECT directly (not a string).
+    # If you switch to a different model above, this line stays the same.
+    # This is the decoupling benefit: Agent doesn't care which model object
+    # it gets — as long as it follows pydantic_ai's model interface.</span>
+    <span class="attr">instructions</span>=<span class="str">"You are a helpful assistant."</span>,
+)
+
+<span class="var">response</span> = <span class="var">agent</span>.<span class="fn">run_sync</span>(<span class="str">"Write a haiku about recursion in programming."</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="attr">output</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="fn">usage</span>())
+
+<span class="var">response</span> = <span class="var">agent</span>.<span class="fn">run_sync</span>(<span class="str">"list top 3 generative models for reasoning"</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="attr">output</span>)
+<span class="fn">print</span>(<span class="var">response</span>.<span class="fn">usage</span>())</pre>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 6 — WHEN TO USE WHAT ══════════ -->
+<div class="section" id="when">
+  <div class="container">
+    <div class="section-tag">Section 06</div>
+    <h2>When to Use What</h2>
+    <p class="subtitle">A decision guide and comparison table to know which approach fits your situation.</p>
+
+    <!-- DECISION TREE -->
+    <div class="dtree">
+      <div style="text-align:center;margin-bottom:16px">
+        <div class="dt-question">❓ Which approach should I use?</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-branch">
+          <div class="dt-cond dt-yes">Need custom timeout / HTTP config?</div>
+          <div class="dt-result">
+            <h4 style="color:var(--byobj)">🏗️ By-Object + Custom AsyncClient</h4>
+            <p>Always set timeouts for production. Use <code>GroqModel + GroqProvider(http_client=AsyncClient(timeout=30))</code></p>
+          </div>
+        </div>
+        <div class="dt-branch">
+          <div class="dt-cond dt-no">Just prototyping / exploring?</div>
+          <div class="dt-result">
+            <h4 style="color:var(--byname)">🏷️ By-Name String</h4>
+            <p>Fastest to write. <code>Agent('groq:llama-3.3-70b-versatile')</code> — done. Swap models by changing one string.</p>
+          </div>
+        </div>
+      </div>
+      <div class="dt-row" style="margin-top:16px">
+        <div class="dt-branch">
+          <div class="dt-cond dt-yes">Using HuggingFace or custom backend?</div>
+          <div class="dt-result">
+            <h4 style="color:var(--hf)">🤗 By-Object only</h4>
+            <p>HuggingFaceModel and exotic providers aren't reachable via the string shortcut. Must use explicit objects.</p>
+          </div>
+        </div>
+        <div class="dt-branch">
+          <div class="dt-cond dt-yes">Local Ollama / vLLM / LM Studio?</div>
+          <div class="dt-result">
+            <h4 style="color:var(--ollama)">🦙 OpenAIChatModel + OllamaProvider</h4>
+            <p>Any OpenAI-compatible local server. <code>OllamaProvider(base_url='http://localhost:11434/v1')</code></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPARISON TABLE -->
+    <table>
+      <thead>
+        <tr>
+          <th>Criteria</th>
+          <th>By-Name (string)</th>
+          <th>By-Object (instance)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Lines of code</td>
+          <td><span class="td-y">1 line</span></td>
+          <td><span class="td-m">3–7 lines</span></td>
+        </tr>
+        <tr>
+          <td>Imports needed</td>
+          <td><span class="td-y">Only <code>Agent</code></span></td>
+          <td><span class="td-m">Model + Provider + maybe AsyncClient</span></td>
+        </tr>
+        <tr>
+          <td>Custom API key source</td>
+          <td><span class="td-n">✗ Env var only</span></td>
+          <td><span class="td-y">✓ Any source (vault, DB, etc.)</span></td>
+        </tr>
+        <tr>
+          <td>Timeout control</td>
+          <td><span class="td-n">✗ Default only</span></td>
+          <td><span class="td-y">✓ Full control via AsyncClient</span></td>
+        </tr>
+        <tr>
+          <td>HuggingFace / exotic backends</td>
+          <td><span class="td-n">✗ Not supported</span></td>
+          <td><span class="td-y">✓ Via explicit model/provider classes</span></td>
+        </tr>
+        <tr>
+          <td>OpenAI-compatible local servers</td>
+          <td><span class="td-m">⚠ Limited</span></td>
+          <td><span class="td-y">✓ OpenAIChatModel + custom base_url</span></td>
+        </tr>
+        <tr>
+          <td>Best for</td>
+          <td>Prototyping, scripts, tutorials</td>
+          <td>Production apps, multi-tenant, agentic systems</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top:28px">
+      <div class="callout-title">🚀 What's Coming Next — Towards Real Agents</div>
+      <p>
+        Now that you can configure <em>any</em> model with full control, the next step is making agents that <strong>actually do things</strong>:
+        <strong>Tools</strong> (let the agent call Python functions or external APIs),
+        <strong>Structured Output</strong> (get back typed Pydantic models, not raw strings),
+        <strong>Multi-turn memory</strong> (maintain conversation history across <code>run_sync()</code> calls), and
+        <strong>Dependency Injection</strong> (pass context like a database connection into tools).
+        All built on the same <code>Agent(model, ...)</code> foundation you've now mastered in two different styles.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>⚡ GenAI Mentor · Week 3: By-Name vs By-Object · algo-genai-2026</div>
+  <div style="margin-top:6px;color:#1e2a45">Prototype fast, then build it right 🏗️</div>
+</div>
+
+</body>
+</html>

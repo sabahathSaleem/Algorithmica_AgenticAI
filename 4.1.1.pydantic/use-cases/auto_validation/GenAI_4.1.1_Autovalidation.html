@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pydantic Auto-Validation — Deep Dive (4.1.1 AutoValidation)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Bricolage+Grotesque:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #07090f;
+    --surface:  #0c0f1c;
+    --surface2: #111526;
+    --border:   #18203a;
+    --border2:  #212e50;
+    --text:     #dce8f8;
+    --muted:    #445068;
+
+    --pyd:      #e879f9;   /* magenta  — Pydantic */
+    --coerce:   #fbbf24;   /* amber    — coercion */
+    --strict:   #f43f5e;   /* rose     — strict/error */
+    --valid:    #4ade80;   /* green    — valid */
+    --try:      #38bdf8;   /* sky      — try/except */
+    --unpack:   #a78bfa;   /* violet   — ** unpacking */
+    --ext:      #fb923c;   /* orange   — external data */
+
+    --font-head: 'Bricolage Grotesque', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-head); line-height:1.7; overflow-x:hidden; }
+
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  nav {
+    position:sticky; top:0; z-index:100;
+    background:rgba(7,9,15,0.94); backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--border);
+    padding:10px 36px; display:flex; gap:24px; align-items:center; overflow-x:auto;
+  }
+  .nav-logo { font-family:var(--font-mono); font-size:0.78rem; font-weight:500; color:var(--pyd); margin-right:8px; white-space:nowrap; }
+  nav a { font-family:var(--font-mono); font-size:0.67rem; color:var(--muted); text-decoration:none; letter-spacing:1px; white-space:nowrap; transition:color .2s; }
+  nav a:hover { color:var(--pyd); }
+
+  /* ── HERO ── */
+  .hero {
+    padding:68px 40px 58px;
+    background:
+      radial-gradient(ellipse at 75% 0%, rgba(232,121,249,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 90%, rgba(251,191,36,0.08) 0%, transparent 50%),
+      var(--bg);
+    border-bottom:1px solid var(--border); position:relative; overflow:hidden;
+  }
+  .hero-dots { position:absolute; inset:0; opacity:0.025; background-image:radial-gradient(circle, #fff 1px, transparent 1px); background-size:32px 32px; }
+  .hero-eyebrow { font-family:var(--font-mono); font-size:0.7rem; color:var(--pyd); letter-spacing:4px; text-transform:uppercase; margin-bottom:14px; }
+  .hero h1 {
+    font-size:clamp(2rem,5vw,3.6rem); font-weight:800; line-height:1.06;
+    background:linear-gradient(120deg, var(--pyd) 0%, #fff 40%, var(--coerce) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    margin-bottom:16px;
+  }
+  .hero p { font-size:1rem; color:var(--muted); max-width:660px; }
+  .hero-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+  .badge { font-family:var(--font-mono); font-size:0.68rem; padding:4px 13px; border-radius:20px; border:1px solid; letter-spacing:1px; }
+
+  /* ── LAYOUT ── */
+  .container { max-width:1100px; margin:0 auto; padding:0 36px; }
+  .section { padding:62px 0; border-bottom:1px solid var(--border); }
+  .section-tag { font-family:var(--font-mono); font-size:0.67rem; color:var(--pyd); letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  h2 { font-size:2rem; font-weight:800; margin-bottom:6px; }
+  h3 { font-size:1.05rem; font-weight:700; margin-bottom:9px; }
+  .subtitle { color:var(--muted); margin-bottom:34px; font-size:0.92rem; }
+
+  /* ── CARDS ── */
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; margin-top:28px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; position:relative; overflow:hidden; transition:transform .18s, border-color .18s; }
+  .card:hover { transform:translateY(-3px); }
+  .card-stripe { position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; }
+  .card-icon { font-size:1.7rem; margin-bottom:9px; }
+  .card h3 { font-size:0.98rem; margin-bottom:7px; }
+  .card p { color:var(--muted); font-size:0.86rem; }
+  .pill { display:inline-block; font-family:var(--font-mono); font-size:0.65rem; padding:2px 8px; border-radius:4px; margin-top:10px; }
+
+  /* ── CALLOUT ── */
+  .callout { border-left:4px solid var(--pyd); background:rgba(232,121,249,0.06); border-radius:0 10px 10px 0; padding:18px 22px; margin:22px 0; }
+  .callout.amber  { border-color:var(--coerce); background:rgba(251,191,36,0.06); }
+  .callout.rose   { border-color:var(--strict); background:rgba(244,63,94,0.06); }
+  .callout.green  { border-color:var(--valid);  background:rgba(74,222,128,0.06); }
+  .callout.sky    { border-color:var(--try);    background:rgba(56,189,248,0.06); }
+  .callout.violet { border-color:var(--unpack); background:rgba(167,139,250,0.06); }
+  .callout.orange { border-color:var(--ext);    background:rgba(251,146,60,0.06); }
+  .callout-title { font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .callout        .callout-title { color:var(--pyd); }
+  .callout.amber  .callout-title { color:var(--coerce); }
+  .callout.rose   .callout-title { color:var(--strict); }
+  .callout.green  .callout-title { color:var(--valid); }
+  .callout.sky    .callout-title { color:var(--try); }
+  .callout.violet .callout-title { color:var(--unpack); }
+  .callout.orange .callout-title { color:var(--ext); }
+  .callout p { font-size:0.875rem; }
+  code { font-family:var(--font-mono); background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:3px; font-size:0.82em; color:var(--pyd); }
+
+  /* ── 3-FILE PROGRESSION ── */
+  .prog-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:28px; }
+  @media(max-width:750px){ .prog-grid { grid-template-columns:1fr; } }
+  .pcard { background:var(--surface); border:2px solid var(--border); border-radius:14px; padding:22px; position:relative; overflow:hidden; }
+  .pcard::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:14px 14px 0 0; }
+  .pcard.f1::before { background:var(--coerce); }
+  .pcard.f2::before { background:var(--strict); }
+  .pcard.f3::before { background:var(--unpack); }
+  .pcard.f1 { border-color:rgba(251,191,36,0.3); }
+  .pcard.f2 { border-color:rgba(244,63,94,0.3); }
+  .pcard.f3 { border-color:rgba(167,139,250,0.3); }
+  .pcard-num { font-family:var(--font-mono); font-size:0.68rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+  .pcard-title { font-size:1rem; font-weight:800; margin-bottom:10px; }
+  .pcard-file { font-family:var(--font-mono); font-size:0.65rem; color:var(--muted); margin-bottom:12px; }
+  .pcard-what { font-size:0.85rem; color:var(--muted); }
+  .pcard-concept { font-family:var(--font-mono); font-size:0.68rem; padding:3px 8px; border-radius:4px; margin-top:12px; display:inline-block; }
+
+  /* ── COERCION TABLE ── */
+  .coerce-table { width:100%; border-collapse:collapse; font-size:0.83rem; margin-top:22px; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; font-family:var(--font-mono); font-size:0.66rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); border-bottom:2px solid var(--border); }
+  td { padding:10px 14px; border-bottom:1px solid var(--border); }
+  tr:hover td { background:rgba(255,255,255,0.015); }
+  .t-ok   { color:var(--valid); font-family:var(--font-mono); }
+  .t-err  { color:var(--strict); font-family:var(--font-mono); }
+  .t-warn { color:var(--coerce); font-family:var(--font-mono); }
+  td code { font-family:var(--font-mono); background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:3px; font-size:0.82em; }
+
+  /* ── TRY/EXCEPT DIAGRAM ── */
+  .try-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; }
+  .try-flow { display:flex; align-items:stretch; gap:0; }
+  .try-col { display:flex; flex-direction:column; }
+  .try-box { border-radius:10px; padding:16px 20px; margin-bottom:12px; font-family:var(--font-mono); font-size:0.75rem; line-height:1.6; }
+  .try-block { background:rgba(56,189,248,0.08); border:2px solid rgba(56,189,248,0.3); }
+  .except-block { background:rgba(244,63,94,0.08); border:2px solid rgba(244,63,94,0.3); }
+  .try-label { font-size:0.68rem; font-family:var(--font-head); font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+  .try-label.tl { color:var(--try); }
+  .try-label.el { color:var(--strict); }
+  .try-arrow { display:flex; align-items:center; padding:0 16px; font-size:1.8rem; color:var(--muted); flex-shrink:0; }
+  .try-outcome { flex:1; display:flex; flex-direction:column; gap:12px; }
+  .outcome-box { border-radius:10px; padding:14px 18px; flex:1; }
+  .outcome-ok  { background:rgba(74,222,128,0.07); border:1px solid rgba(74,222,128,0.3); }
+  .outcome-err { background:rgba(244,63,94,0.07); border:1px solid rgba(244,63,94,0.3); }
+  .outcome-label { font-family:var(--font-mono); font-size:0.68rem; margin-bottom:6px; }
+  .outcome-label.ok  { color:var(--valid); }
+  .outcome-label.err { color:var(--strict); }
+  .outcome-text { font-size:0.84rem; color:var(--muted); }
+
+  /* ── VALIDATION ERROR ANATOMY ── */
+  .verr-wrap { background:#030508; border:1px solid var(--border); border-radius:14px; padding:28px; margin-top:24px; font-family:var(--font-mono); font-size:0.78rem; line-height:1.8; }
+  .ve-line { display:flex; gap:14px; align-items:flex-start; margin-bottom:4px; }
+  .ve-num  { color:var(--muted); min-width:20px; }
+  .ve-ann  { font-style:italic; }
+  .ann-loc   { color:var(--coerce); }
+  .ann-type  { color:var(--strict); }
+  .ann-msg   { color:var(--pyd); }
+  .ann-input { color:var(--valid); }
+  .ann-url   { color:var(--muted); }
+
+  /* ── UNPACK DIAGRAM ── */
+  .unpack-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; margin-top:28px; overflow-x:auto; }
+  .unpack-row { display:flex; align-items:center; gap:0; min-width:600px; }
+  .un-box { background:var(--surface2); border:2px solid var(--border); border-radius:10px; padding:14px 18px; text-align:center; }
+  .un-box .ub-icon { font-size:1.4rem; }
+  .un-box .ub-label { font-size:0.7rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-top:5px; }
+  .un-box .ub-sub { font-family:var(--font-mono); font-size:0.6rem; color:var(--muted); margin-top:3px; }
+  .un-box.hl-ext    { border-color:var(--ext);    background:rgba(251,146,60,0.08); }
+  .un-box.hl-unpack { border-color:var(--unpack); background:rgba(167,139,250,0.08); }
+  .un-box.hl-pyd    { border-color:var(--pyd);    background:rgba(232,121,249,0.08); }
+  .un-arrow { display:flex; flex-direction:column; align-items:center; padding:0 8px; gap:3px; }
+  .un-arrow .al { width:40px; height:2px; background:linear-gradient(90deg,var(--ext),var(--pyd)); position:relative; }
+  .un-arrow .al::after { content:'▶'; position:absolute; right:-7px; top:-7px; font-size:0.75rem; color:var(--pyd); }
+  .un-arrow .alabel { font-family:var(--font-mono); font-size:0.57rem; color:var(--muted); white-space:nowrap; }
+
+  /* ── OUTPUT BOXES ── */
+  .out-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-top:20px; overflow:hidden; }
+  .out-header { background:var(--surface2); padding:10px 18px; font-family:var(--font-mono); font-size:0.68rem; color:var(--muted); letter-spacing:1px; display:flex; align-items:center; gap:10px; }
+  .out-dot { width:8px; height:8px; border-radius:50%; }
+  .out-body { padding:18px 22px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.9; }
+  .o-ok { color:var(--valid); }
+  .o-coerce { color:var(--coerce); }
+  .o-err { color:var(--strict); }
+  .o-eq-t { color:var(--try); }
+  .o-eq-f { color:var(--strict); }
+  .o-ann { color:var(--muted); font-style:italic; }
+
+  /* ── CODE ── */
+  .code-file-header { display:flex; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; padding:11px 18px; }
+  .dots { display:flex; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g{background:#28c840;}
+  .code-file-name { font-family:var(--font-mono); font-size:0.74rem; color:var(--muted); }
+  .file-badge { margin-left:auto; font-family:var(--font-mono); font-size:0.63rem; padding:3px 10px; border-radius:20px; border:1px solid; }
+  pre { background:#030407; border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:24px; overflow-x:auto; font-family:var(--font-mono); font-size:0.8rem; line-height:1.9; margin-bottom:28px; }
+
+  .kw  { color:#ff79c6; }
+  .fn  { color:#50fa7b; }
+  .str { color:#f1fa8c; }
+  .cm  { color:#253550; font-style:italic; }
+  .cls { color:#8be9fd; }
+  .var { color:#f8f8f2; }
+  .attr{ color:#ffb86c; }
+  .num { color:#bd93f9; }
+  .pc  { color:var(--pyd); }      /* pydantic */
+  .cc  { color:var(--coerce); }   /* coercion */
+  .ec  { color:var(--strict); }   /* error */
+  .tc  { color:var(--try); }      /* try */
+  .uc  { color:var(--unpack); }   /* unpack */
+  .xc  { color:var(--ext); }      /* external */
+
+  .footer { padding:40px; text-align:center; color:var(--muted); font-family:var(--font-mono); font-size:0.72rem; border-top:1px solid var(--border); }
+  @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .section { animation:fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">⚡ GenAI Mentor</span>
+  <a href="#concepts">Concepts</a>
+  <a href="#progression">3-File Progression</a>
+  <a href="#coercion">Coercion Rules</a>
+  <a href="#tryexcept">try/except</a>
+  <a href="#valerror">ValidationError</a>
+  <a href="#unpack">** Unpacking</a>
+  <a href="#code">Commented Code</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-dots"></div>
+  <div class="container">
+    <div class="hero-eyebrow">Folder 4.1.1 — AutoValidation</div>
+    <h1>Pydantic: The Validation<br/>@dataclass Was Missing</h1>
+    <p>Three files, one escalating story: how Pydantic <strong>auto-coerces types</strong>, how to <strong>catch validation errors gracefully</strong>, and how to <strong>parse real-world external data</strong> safely using <code>**</code> unpacking — the exact pattern used in production APIs and LLM pipelines.</p>
+    <div class="hero-badges">
+      <span class="badge" style="color:var(--pyd);border-color:var(--pyd)">BaseModel</span>
+      <span class="badge" style="color:var(--coerce);border-color:var(--coerce)">Type Coercion</span>
+      <span class="badge" style="color:var(--strict);border-color:var(--strict)">ValidationError</span>
+      <span class="badge" style="color:var(--try);border-color:var(--try)">try / except</span>
+      <span class="badge" style="color:var(--unpack);border-color:var(--unpack)">** dict unpacking</span>
+      <span class="badge" style="color:var(--ext);border-color:var(--ext)">external_data</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 1 — CORE CONCEPTS ════════ -->
+<div class="section" id="concepts">
+  <div class="container">
+    <div class="section-tag">Section 01</div>
+    <h2>Core Concepts</h2>
+    <p class="subtitle">Everything new introduced across these 3 files — the Pydantic validation layer in full.</p>
+
+    <div class="cards-grid">
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--coerce)"></div>
+        <div class="card-icon">🔄</div>
+        <h3>Type Coercion (Auto-Cast)</h3>
+        <p>Pydantic doesn't just <em>validate</em> — it <em>coerces</em>. If you pass <code>"3"</code> for an <code>int</code> field, Pydantic silently converts it to <code>3</code>. This is intentional for parsing JSON/API data where numbers often arrive as strings. It succeeds when conversion is lossless and safe.</p>
+        <span class="pill" style="background:rgba(251,191,36,0.12);color:var(--coerce)">"3" → 3  (string→int coercion)</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--strict)"></div>
+        <div class="card-icon">🚫</div>
+        <h3>ValidationError — Hard Failure</h3>
+        <p>When Pydantic <em>cannot</em> safely coerce a value — e.g. <code>3.5</code> for <code>int</code> (lossy: drops the <code>.5</code>) — it raises a <code>ValidationError</code>. This is a <strong>hard stop</strong>: your code never receives an invalid object. The error has rich detail: which field, what value, why it failed.</p>
+        <span class="pill" style="background:rgba(244,63,94,0.12);color:var(--strict)">3.5 → int fails (lossy!)</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--try)"></div>
+        <div class="card-icon">🛡️</div>
+        <h3>try / except ValidationError</h3>
+        <p>The production pattern for handling Pydantic errors. Wrap model creation in <code>try:</code> — if validation fails, Pydantic raises <code>ValidationError</code> and the <code>except:</code> block catches it cleanly. Your app doesn't crash; you log/display the error and continue.</p>
+        <span class="pill" style="background:rgba(56,189,248,0.12);color:var(--try)">graceful degradation</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--unpack)"></div>
+        <div class="card-icon">📦</div>
+        <h3>** Dictionary Unpacking</h3>
+        <p><code>Product(**data)</code> where <code>data</code> is a dict: the <code>**</code> operator unpacks key-value pairs as keyword arguments. <code>{"name": "Laptop", "quantity": 3}</code> becomes <code>Product(name="Laptop", quantity=3)</code>. Essential for parsing API responses, JSON payloads, and LLM output.</p>
+        <span class="pill" style="background:rgba(167,139,250,0.12);color:var(--unpack)">**dict → keyword args</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--ext)"></div>
+        <div class="card-icon">🌐</div>
+        <h3>external_data Pattern</h3>
+        <p>File 3 names the dict <code>external_data</code> — a hint that this dict could come from <strong>anywhere</strong>: a REST API response, a database row, a user form submission, or an LLM's JSON output. Pydantic's job is to validate and normalise it before your business logic ever sees it.</p>
+        <span class="pill" style="background:rgba(251,146,60,0.12);color:var(--ext)">API / DB / LLM → validated object</span>
+      </div>
+
+      <div class="card">
+        <div class="card-stripe" style="background:var(--pyd)"></div>
+        <div class="card-icon">⚡</div>
+        <h3>Lossless vs Lossy Coercion</h3>
+        <p>Pydantic's coercion rule: <strong>lossless = OK, lossy = error</strong>. <code>"3"</code> → <code>int(3)</code>: no data lost ✓. <code>3.5</code> → <code>int(3)</code>: the <code>.5</code> is dropped — lossy ✗. <code>"abc"</code> → <code>int</code>: impossible ✗. This rule makes Pydantic predictable and trustworthy.</p>
+        <span class="pill" style="background:rgba(232,121,249,0.12);color:var(--pyd)">lossless ✓  lossy ✗</span>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:32px">
+      <div class="callout-title">💡 Continuation from 4.1.1 Classical vs Dataclass</div>
+      <p>
+        The previous folder ended with File 3 showing that <code>@dataclass</code> silently stores wrong types. <strong>These 3 files are the direct answer to that problem.</strong> Pydantic's <code>BaseModel</code> enforces types — but with intelligence: it first tries to coerce (File 1), then raises a hard error if coercion is lossy (File 2), and finally shows you the production pattern for external data (File 3). This is the complete picture.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 2 — 3-FILE PROGRESSION ════════ -->
+<div class="section" id="progression">
+  <div class="container">
+    <div class="section-tag">Section 02</div>
+    <h2>The 3-File Progression</h2>
+    <p class="subtitle">Each file adds one layer of the Pydantic validation story.</p>
+
+    <div class="prog-grid">
+      <div class="pcard f1">
+        <div class="pcard-num">File 01</div>
+        <div class="pcard-title" style="color:var(--coerce)">Coercion — Silent Success</div>
+        <div class="pcard-file">validation1.py</div>
+        <div class="pcard-what">Passes <code>quantity='3'</code> (string) to an <code>int</code> field. Expects an error. Gets a <strong>silent coercion</strong> instead — Pydantic converts <code>"3"</code> to <code>3</code>. Teaches that Pydantic is smarter than "crash or pass".</div>
+        <span class="pcard-concept" style="background:rgba(251,191,36,0.12);color:var(--coerce)">str "3" → int 3</span>
+      </div>
+      <div class="pcard f2">
+        <div class="pcard-num">File 02</div>
+        <div class="pcard-title" style="color:var(--strict)">Hard Failure — ValidationError</div>
+        <div class="pcard-file">validation2.py</div>
+        <div class="pcard-what">Passes <code>quantity=3.5</code> (float) to an <code>int</code> field. Now Pydantic <strong>raises ValidationError</strong> — converting 3.5 to int would drop the <code>.5</code> (lossy). Introduces <code>try/except ValidationError</code> to handle it gracefully.</div>
+        <span class="pcard-concept" style="background:rgba(244,63,94,0.12);color:var(--strict)">3.5 → int fails</span>
+      </div>
+      <div class="pcard f3">
+        <div class="pcard-num">File 03</div>
+        <div class="pcard-title" style="color:var(--unpack)">Real-World Pattern — ** Unpack</div>
+        <div class="pcard-file">validation3.py</div>
+        <div class="pcard-what">Shows the <strong>production pattern</strong>: data arrives as a dict (from API/DB/LLM), unpacked into a Pydantic model with <code>**external_data</code>. Same <code>3.5</code> error, same graceful handling — but now in the context of real data pipelines.</div>
+        <span class="pcard-concept" style="background:rgba(167,139,250,0.12);color:var(--unpack)">Product(**dict)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 3 — COERCION RULES ════════ -->
+<div class="section" id="coercion">
+  <div class="container">
+    <div class="section-tag">Section 03</div>
+    <h2>Pydantic's Coercion Rules — What Converts, What Fails</h2>
+    <p class="subtitle">Pydantic v2 tries to coerce before it rejects. Here's exactly when it succeeds and fails.</p>
+
+    <table class="coerce-table">
+      <thead>
+        <tr><th>Value Passed</th><th>Field Type</th><th>Result</th><th>Pydantic Action</th><th>File</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>"3"</code> (str)</td><td><code>int</code></td>
+          <td class="t-ok">✓ Stored as 3</td>
+          <td>Coercion: <code>int("3")</code> = 3. Lossless → allowed.</td>
+          <td>File 1</td>
+        </tr>
+        <tr>
+          <td><code>3.5</code> (float)</td><td><code>int</code></td>
+          <td class="t-err">✗ ValidationError</td>
+          <td>Coercion: <code>int(3.5)</code> = 3. Drops <code>.5</code> → lossy → rejected.</td>
+          <td>Files 2, 3</td>
+        </tr>
+        <tr>
+          <td><code>3</code> (int)</td><td><code>float</code></td>
+          <td class="t-ok">✓ Stored as 3.0</td>
+          <td>Widening: int fits in float with no loss. Allowed.</td>
+          <td>All files</td>
+        </tr>
+        <tr>
+          <td><code>"Laptop"</code> (str)</td><td><code>str</code></td>
+          <td class="t-ok">✓ Stored as "Laptop"</td>
+          <td>Exact match. No coercion needed.</td>
+          <td>All files</td>
+        </tr>
+        <tr>
+          <td><code>12</code> (int)</td><td><code>str</code></td>
+          <td class="t-warn">⚠ Stored as "12"</td>
+          <td>Pydantic coerces int to str: <code>str(12)</code> = "12". Allowed in v2 lax mode.</td>
+          <td>(extension)</td>
+        </tr>
+        <tr>
+          <td><code>"abc"</code> (str)</td><td><code>int</code></td>
+          <td class="t-err">✗ ValidationError</td>
+          <td><code>int("abc")</code> raises ValueError. Cannot coerce → ValidationError.</td>
+          <td>(extension)</td>
+        </tr>
+        <tr>
+          <td><code>None</code></td><td><code>int</code></td>
+          <td class="t-err">✗ ValidationError</td>
+          <td>None is not numeric. Use <code>Optional[int]</code> to allow None.</td>
+          <td>(extension)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout amber" style="margin-top:24px">
+      <div class="callout-title">🔑 The Lossless Rule — Key Mental Model</div>
+      <p>
+        Ask yourself: <em>"Can I convert this value back to the original without losing information?"</em><br/>
+        <code>"3"</code> → <code>3</code> → <code>"3"</code>: round-trip works. <strong>Lossless ✓</strong><br/>
+        <code>3.5</code> → <code>3</code> → <code>3.5</code>: round-trip fails, <code>.5</code> is gone. <strong>Lossy ✗</strong><br/>
+        Pydantic uses a similar logic (not exactly round-trip, but precision-preserving). This makes it safe for financial data, IDs, and any domain where silent rounding would be catastrophic.
+      </p>
+    </div>
+
+    <div class="out-wrap" style="margin-top:24px">
+      <div class="out-header">
+        <div class="out-dot" style="background:var(--coerce)"></div>
+        <span>validation1.py — terminal output (annotated)</span>
+      </div>
+      <div class="out-body">
+        <div><span class="o-ok">name='Laptop' quantity=3 price=200.0</span> <span class="o-ann">&nbsp;← p1: all correct types, price int 200 coerced to float 200.0</span></div>
+        <div><span class="o-ok">name='LED' quantity=2 price=300.0</span></div>
+        <div><span class="o-coerce">name='Laptop' quantity=3 price=200.0</span> <span class="o-ann">&nbsp;← p3: quantity='3' (str) silently coerced to 3 (int) — no error!</span></div>
+        <div><span class="o-eq-t">True</span> <span class="o-ann">&nbsp;← p1 == p3: both have quantity=3 now (coercion happened before comparison)</span></div>
+        <div><span class="o-eq-f">False</span> <span class="o-ann">&nbsp;← p1 == p2: different name/quantity/price</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 4 — TRY/EXCEPT ════════ -->
+<div class="section" id="tryexcept">
+  <div class="container">
+    <div class="section-tag">Section 04</div>
+    <h2>try / except ValidationError</h2>
+    <p class="subtitle">The correct way to handle Pydantic failures — don't let your app crash.</p>
+
+    <div class="try-wrap">
+      <div style="font-family:var(--font-mono);font-size:0.67rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:22px">Execution Flow in validation2.py</div>
+      <div class="try-flow">
+        <div style="flex:1.2">
+          <div class="try-box try-block">
+            <div class="try-label tl">TRY BLOCK — "happy path"</div>
+            <div style="color:var(--try)">p1 = Product(name="Laptop", quantity=<span style="color:var(--strict)">3.5</span>, price=200)</div>
+            <div style="color:var(--muted);margin-top:6px;font-size:0.7rem">← 3.5 (float) for int field</div>
+            <div style="color:var(--muted);font-size:0.7rem">← Pydantic detects lossy coercion</div>
+            <div style="color:var(--strict);font-size:0.7rem;margin-top:4px">→ raises ValidationError immediately</div>
+            <div style="color:var(--muted);font-size:0.7rem;margin-top:6px;font-style:italic">print(p1) never reached</div>
+            <div style="color:var(--muted);font-size:0.7rem;font-style:italic">p2 = Product(...) never reached</div>
+            <div style="color:var(--muted);font-size:0.7rem;font-style:italic">all remaining lines skipped</div>
+          </div>
+          <div class="try-box except-block">
+            <div class="try-label el">EXCEPT ValidationError as e</div>
+            <div style="color:var(--strict)">print(e)</div>
+            <div style="color:var(--muted);margin-top:6px;font-size:0.7rem">← e is the ValidationError object</div>
+            <div style="color:var(--muted);font-size:0.7rem">← print(e) shows formatted error details</div>
+            <div style="color:var(--muted);font-size:0.7rem">← execution continues after this block</div>
+            <div style="color:var(--muted);font-size:0.7rem;font-style:italic">app doesn't crash</div>
+          </div>
+        </div>
+        <div class="try-arrow">→</div>
+        <div class="try-outcome">
+          <div class="outcome-box outcome-ok">
+            <div class="outcome-label ok">IF all valid:</div>
+            <div class="outcome-text">All lines in try run normally. Products created, printed, compared. except block skipped.</div>
+          </div>
+          <div class="outcome-box outcome-err">
+            <div class="outcome-label err">IF validation fails (our case):</div>
+            <div class="outcome-text">Execution jumps to except at the first failing line. ValidationError printed. App continues safely after the try/except block.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout sky" style="margin-top:24px">
+      <div class="callout-title">⚡ Why try/except Here and Not in File 1?</div>
+      <p>
+        File 1 has no try/except because <code>quantity='3'</code> <em>succeeds</em> via coercion — no error to catch. File 2 uses <code>quantity=3.5</code> which <em>fails</em> — so we need error handling. In production, you'd <strong>always</strong> wrap external data parsing in try/except because you can't trust the input. File 3's pattern is the gold standard: every real-world data ingestion point should be protected.
+      </p>
+    </div>
+
+    <div class="callout rose" style="margin-top:12px">
+      <div class="callout-title">⚠️ The Entire try Block Exits on First Error</div>
+      <p>
+        Notice: <code>p2</code> and <code>p3</code> are created <em>after</em> <code>p1</code> in the try block. When <code>p1</code> fails, Python immediately jumps to the except block — <strong>p2 and p3 are never created</strong>. The print statements after <code>p1</code> are also never reached. This is Python's standard try/except flow, not Pydantic-specific. To collect <em>all</em> errors, create each object in its own try/except.
+      </p>
+    </div>
+
+    <div class="out-wrap" style="margin-top:20px">
+      <div class="out-header">
+        <div class="out-dot" style="background:var(--strict)"></div>
+        <span>validation2.py — terminal output (only the error is printed)</span>
+      </div>
+      <div class="out-body">
+        <div class="o-err">1 validation error for Product</div>
+        <div class="o-err">quantity</div>
+        <div class="o-err">&nbsp;&nbsp;Input should be a valid integer, unable to parse string as an integer [type=int_parsing, ...]</div>
+        <div class="o-ann" style="margin-top:8px">&nbsp;← p2 and p3 never created. The 4 print() lines all skipped.</div>
+        <div class="o-ann">&nbsp;← Only the ValidationError message is shown — from print(e) in except block.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 5 — VALIDATION ERROR ANATOMY ════════ -->
+<div class="section" id="valerror">
+  <div class="container">
+    <div class="section-tag">Section 05</div>
+    <h2>ValidationError Anatomy</h2>
+    <p class="subtitle">What the error message tells you — and how to read it in production logs.</p>
+
+    <div class="verr-wrap">
+      <div style="font-family:var(--font-head);font-size:0.68rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px">Full ValidationError output for quantity=3.5 in an int field:</div>
+
+      <div class="ve-line">
+        <span class="ve-num">1</span>
+        <span><span style="color:var(--strict)">1 validation error for Product</span></span>
+        <span class="ve-ann" style="margin-left:16px;color:var(--muted)">← total error count + model name</span>
+      </div>
+      <div class="ve-line">
+        <span class="ve-num">2</span>
+        <span class="ann-loc">quantity</span>
+        <span class="ve-ann" style="margin-left:16px;color:var(--muted)">← the FIELD that failed. For nested models: "address.street"</span>
+      </div>
+      <div class="ve-line">
+        <span class="ve-num">3</span>
+        <span style="color:var(--muted)">&nbsp;&nbsp;</span><span class="ann-msg">Input should be a valid integer, unable to parse string as an integer</span>
+      </div>
+      <div class="ve-line">
+        <span class="ve-num">4</span>
+        <span style="color:var(--muted)">&nbsp;&nbsp;[</span><span style="color:var(--strict)">type=int_from_float</span><span style="color:var(--muted)">, </span><span style="color:var(--coerce)">input_value=3.5</span><span style="color:var(--muted)">, </span><span style="color:var(--valid)">input_type=float</span><span style="color:var(--muted)">]</span>
+        <span class="ve-ann" style="margin-left:10px;color:var(--muted)">← error type, the bad value, the type it had</span>
+      </div>
+      <div class="ve-line">
+        <span class="ve-num">5</span>
+        <span style="color:var(--muted)">&nbsp;&nbsp;For further information visit </span><span style="color:var(--unpack)">https://errors.pydantic.dev/...</span>
+        <span class="ve-ann" style="margin-left:10px;color:var(--muted)">← doc link for this specific error type</span>
+      </div>
+
+      <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+        <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.3);border-radius:8px;padding:12px">
+          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--strict);margin-bottom:4px">field name</div>
+          <div style="font-family:var(--font-mono);font-size:0.8rem">quantity</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">Which field failed. Use this to tell users exactly what to fix.</div>
+        </div>
+        <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:12px">
+          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--coerce);margin-bottom:4px">input_value</div>
+          <div style="font-family:var(--font-mono);font-size:0.8rem">3.5</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">The exact bad value received. Critical for debugging API inputs.</div>
+        </div>
+        <div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.3);border-radius:8px;padding:12px">
+          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--valid);margin-bottom:4px">input_type</div>
+          <div style="font-family:var(--font-mono);font-size:0.8rem">float</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">The type Pydantic received. Tells you where the data came from (float vs str).</div>
+        </div>
+        <div style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:12px">
+          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--unpack);margin-bottom:4px">error type</div>
+          <div style="font-family:var(--font-mono);font-size:0.8rem">int_from_float</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">Machine-readable error code. Use <code>e.errors()</code> to get this as structured data.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:24px">
+      <div class="callout-title">🔍 Getting Structured Error Data</div>
+      <p>
+        <code>print(e)</code> gives a human-readable string. But in production code you'd use:<br/>
+        <code>e.errors()</code> → returns a list of dicts, one per failed field. Machine-readable — perfect for building API error responses or logging to a dashboard.<br/>
+        <code>e.error_count()</code> → total number of validation failures (one model can have multiple).<br/>
+        This is why Logfire (Week 4) captures Pydantic errors so richly — it reads <code>e.errors()</code> directly.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 6 — ** UNPACKING ════════ -->
+<div class="section" id="unpack">
+  <div class="container">
+    <div class="section-tag">Section 06</div>
+    <h2>** Dictionary Unpacking — The Production Pattern</h2>
+    <p class="subtitle">File 3 shows the real-world way Pydantic is used: parse incoming data, not hardcoded values.</p>
+
+    <div class="unpack-wrap">
+      <div style="font-family:var(--font-mono);font-size:0.67rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:22px">How ** Unpacking Works</div>
+      <div class="unpack-row">
+
+        <div class="un-box hl-ext">
+          <div class="ub-icon">📦</div>
+          <div class="ub-label" style="color:var(--ext)">external_data</div>
+          <div class="ub-sub">{"name": "Laptop",<br/>"quantity": 3.5,<br/>"price": 200}</div>
+        </div>
+        <div class="un-arrow"><div class="al"></div><div class="alabel">**data unpacks to</div></div>
+
+        <div class="un-box hl-unpack">
+          <div class="ub-icon">🔓</div>
+          <div class="ub-label" style="color:var(--unpack)">** operator</div>
+          <div class="ub-sub">name="Laptop",<br/>quantity=3.5,<br/>price=200</div>
+        </div>
+        <div class="un-arrow"><div class="al"></div><div class="alabel">passed as kwargs to</div></div>
+
+        <div class="un-box hl-pyd">
+          <div class="ub-icon">🏛️</div>
+          <div class="ub-label" style="color:var(--pyd)">Product(…)</div>
+          <div class="ub-sub">Pydantic validates<br/>each field<br/>→ ValidationError!</div>
+        </div>
+
+      </div>
+      <div style="margin-top:16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--muted)">
+        <span style="color:var(--unpack)">Product(**external_data)</span> is exactly equivalent to <span style="color:var(--pyd)">Product(name="Laptop", quantity=3.5, price=200)</span>
+      </div>
+    </div>
+
+    <div style="margin-top:28px">
+      <h3 style="margin-bottom:8px">Where Does external_data Come From in Real Life?</h3>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-stripe" style="background:var(--ext)"></div>
+          <div class="card-icon">🌐</div>
+          <h3>REST API Response</h3>
+          <p><code>data = requests.get(url).json()</code> returns a dict. Unpack into Pydantic: <code>Product(**data)</code>. Any missing or wrong-typed fields → ValidationError before business logic.</p>
+          <span class="pill" style="background:rgba(251,146,60,0.12);color:var(--ext)">response.json()</span>
+        </div>
+        <div class="card">
+          <div class="card-stripe" style="background:var(--pyd)"></div>
+          <div class="card-icon">🤖</div>
+          <h3>LLM JSON Output</h3>
+          <p>When pydantic_ai's <code>output_type=</code> gets JSON back from the LLM, it internally does exactly this: <code>YourModel(**llm_json_dict)</code>. If the LLM hallucinated a wrong type — caught here.</p>
+          <span class="pill" style="background:rgba(232,121,249,0.12);color:var(--pyd)">pydantic_ai output_type=</span>
+        </div>
+        <div class="card">
+          <div class="card-stripe" style="background:var(--try)"></div>
+          <div class="card-icon">📋</div>
+          <h3>Form / User Input</h3>
+          <p>HTML forms send strings for everything — <code>{"quantity": "3", "price": "200.50"}</code>. Pydantic coerces all values to the right types. No manual <code>int(request.form["quantity"])</code> needed.</p>
+          <span class="pill" style="background:rgba(56,189,248,0.12);color:var(--try)">form data parsing</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-wrap" style="margin-top:20px">
+      <div class="out-header">
+        <div class="out-dot" style="background:var(--strict)"></div>
+        <span>validation3.py — terminal output (same error, different context)</span>
+      </div>
+      <div class="out-body">
+        <div class="o-err">1 validation error for Product</div>
+        <div class="o-err">quantity</div>
+        <div class="o-err">&nbsp;&nbsp;Input should be a valid integer, unable to parse string as an integer</div>
+        <div class="o-err">&nbsp;&nbsp;[type=int_from_float, input_value=3.5, input_type=float]</div>
+        <div class="o-ann" style="margin-top:8px">&nbsp;← Identical error to File 2 — same problem (3.5 for int), same outcome</div>
+        <div class="o-ann">&nbsp;← But now the pattern is: incoming dict → ** unpack → validate → catch error</div>
+        <div class="o-ann">&nbsp;← This is the exact pattern Pydantic uses in FastAPI, pydantic_ai, and more</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ SECTION 7 — COMMENTED CODE ════════ -->
+<div class="section" id="code">
+  <div class="container">
+    <div class="section-tag">Section 07</div>
+    <h2>Commented Code — All 3 Files</h2>
+    <p class="subtitle">Every coercion, every error path, every pattern explained.</p>
+
+    <!-- FILE 1 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">validation1.py</span>
+      <span class="file-badge" style="color:var(--coerce);border-color:var(--coerce)">COERCION — SILENT SUCCESS</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="pc">BaseModel</span>
+<span class="cm"># Pydantic v2 BaseModel. Fields are type-annotated below.
+# Unlike @dataclass, Pydantic ENFORCES types — but with coercion first.</span>
+
+<span class="kw">class</span> <span class="pc">Product</span>(<span class="pc">BaseModel</span>):
+    <span class="var">name</span>: <span class="cls">str</span>
+    <span class="var">quantity</span>: <span class="cls">int</span>
+    <span class="var">price</span>: <span class="cls">float</span>
+    <span class="cm">    # Identical to the @dataclass in 4.1.1.
+    # BUT: Pydantic validates and coerces values at creation time.
+    # No Field() here — just raw type annotations.
+    # Pydantic knows: int field → try to convert input to int.
+    # float field → int 200 is coerced to 200.0 automatically.</span>
+
+
+<span class="var">p1</span> = <span class="pc">Product</span>(<span class="attr">name</span>=<span class="str">"Laptop"</span>, <span class="attr">quantity</span>=<span class="num">3</span>, <span class="attr">price</span>=<span class="num">200</span>)
+<span class="cm"># All correct types. price=200 (int) coerced to 200.0 (float) — lossless.
+# Note: using keyword args here (name=..., quantity=...) not positional.
+# Pydantic requires keyword args by default (unlike @dataclass).</span>
+<span class="fn">print</span>(<span class="var">p1</span>)
+<span class="cm"># Output: name='Laptop' quantity=3 price=200.0
+# Pydantic's __repr__: shows field names WITH values, quoting strings.</span>
+
+<span class="var">p2</span> = <span class="pc">Product</span>(<span class="attr">name</span>=<span class="str">"LED"</span>, <span class="attr">quantity</span>=<span class="num">2</span>, <span class="attr">price</span>=<span class="num">300</span>)
+<span class="fn">print</span>(<span class="var">p2</span>)
+
+<span class="var">p3</span> = <span class="pc">Product</span>(<span class="attr">name</span>=<span class="str">"Laptop"</span>, <span class="attr">quantity</span>=<span class="cc">'3'</span>, <span class="attr">price</span>=<span class="num">200</span>)
+<span class="cm"># quantity='3' — a STRING where int is declared.
+# @dataclass would: store '3' silently as a string (bug!).
+# Pydantic does: attempt int('3') = 3. Lossless → SUCCEEDS.
+# p3.quantity = 3 (integer), NOT '3' (string).
+# No exception raised. No error. Silent coercion.
+# This behaviour is designed for JSON APIs where numbers arrive as strings.</span>
+<span class="fn">print</span>(<span class="var">p3</span>)
+<span class="cm"># Output: name='Laptop' quantity=3 price=200.0
+# Notice quantity=3 (int), NOT quantity='3' (str) — Pydantic converted it.</span>
+
+<span class="fn">print</span>(<span class="var">p1</span> == <span class="var">p3</span>)
+<span class="cm"># True — because after coercion, both have quantity=3 (int).
+# If @dataclass stored '3': p1.quantity==3 (int) != p3.quantity=='3' (str)
+# Pydantic's coercion made the equality work correctly.</span>
+<span class="fn">print</span>(<span class="var">p1</span> == <span class="var">p2</span>)
+<span class="cm"># False — different name, quantity, price.</span></pre>
+
+    <!-- FILE 2 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">validation2.py</span>
+      <span class="file-badge" style="color:var(--strict);border-color:var(--strict)">HARD FAILURE + try/except</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="pc">BaseModel</span>, <span class="ec">ValidationError</span>
+<span class="cm"># ValidationError is Pydantic's exception class.
+# Must be imported separately to use in except clause.
+# It's a subclass of ValueError — but much richer (has .errors(), .error_count()).</span>
+
+<span class="kw">class</span> <span class="pc">Product</span>(<span class="pc">BaseModel</span>):
+    <span class="var">name</span>: <span class="cls">str</span>
+    <span class="var">quantity</span>: <span class="cls">int</span>
+    <span class="var">price</span>: <span class="cls">float</span>
+
+
+<span class="kw">try</span>:
+    <span class="cm">    # ← try block: wrap ALL model creation in here.
+    # Python executes these lines one by one.
+    # The FIRST ValidationError exits the try block immediately.</span>
+
+    <span class="var">p1</span> = <span class="pc">Product</span>(<span class="attr">name</span>=<span class="str">"Laptop"</span>, <span class="attr">quantity</span>=<span class="cc">3.5</span>, <span class="attr">price</span>=<span class="num">200</span>)
+    <span class="cm">    # quantity=3.5 — FLOAT for int field.
+    # Pydantic attempts: int(3.5) = 3. BUT .5 is dropped → LOSSY.
+    # Pydantic REFUSES the coercion and raises ValidationError here.
+    # Key distinction from File 1:
+    #   '3' → 3: lossless  → coercion allowed ✓
+    #   3.5 → 3: lossy     → coercion rejected, ValidationError ✗</span>
+
+    <span class="fn">print</span>(<span class="var">p1</span>)        <span class="cm"># ← NEVER REACHED (exception raised on line above)</span>
+    <span class="var">p2</span> = <span class="pc">Product</span>(<span class="attr">name</span>=<span class="str">"LED"</span>, <span class="attr">quantity</span>=<span class="num">2</span>, <span class="attr">price</span>=<span class="num">300</span>)   <span class="cm"># ← NEVER REACHED</span>
+    <span class="fn">print</span>(<span class="var">p2</span>)        <span class="cm"># ← NEVER REACHED</span>
+    <span class="var">p3</span> = <span class="pc">Product</span>(<span class="attr">name</span>=<span class="str">"Laptop"</span>, <span class="attr">quantity</span>=<span class="num">3</span>, <span class="attr">price</span>=<span class="num">200</span>)   <span class="cm"># ← NEVER REACHED</span>
+    <span class="fn">print</span>(<span class="var">p3</span>)        <span class="cm"># ← NEVER REACHED</span>
+    <span class="fn">print</span>(<span class="var">p1</span> == <span class="var">p3</span>) <span class="cm"># ← NEVER REACHED</span>
+    <span class="fn">print</span>(<span class="var">p1</span> == <span class="var">p2</span>) <span class="cm"># ← NEVER REACHED</span>
+
+<span class="kw">except</span> <span class="ec">ValidationError</span> <span class="kw">as</span> <span class="var">e</span>:
+    <span class="cm">    # Catches ONLY ValidationError (not other exceptions).
+    # 'e' is the ValidationError object — rich error data inside.
+    # e.errors()      → list of dicts, one per failure
+    # e.error_count() → total number of field failures
+    # str(e)          → human-readable summary (what print(e) shows)</span>
+    <span class="fn">print</span>(<span class="var">e</span>)
+    <span class="cm">    # Prints the full validation error summary.
+    # Shows: error count, field name, human message, type code, bad value.
+    # App continues normally after this block — no crash.</span></pre>
+
+    <!-- FILE 3 -->
+    <div class="code-file-header">
+      <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <span class="code-file-name">validation3.py</span>
+      <span class="file-badge" style="color:var(--unpack);border-color:var(--unpack)">REAL-WORLD PATTERN — ** UNPACK</span>
+    </div>
+<pre><span class="kw">from</span> <span class="cls">pydantic</span> <span class="kw">import</span> <span class="pc">BaseModel</span>, <span class="ec">ValidationError</span>
+
+<span class="kw">class</span> <span class="pc">Product</span>(<span class="pc">BaseModel</span>):
+    <span class="var">name</span>: <span class="cls">str</span>
+    <span class="var">quantity</span>: <span class="cls">int</span>
+    <span class="var">price</span>: <span class="cls">float</span>
+
+
+<span class="kw">try</span>:
+    <span class="xc">external_data</span> = {
+        <span class="str">"name"</span>: <span class="str">"Laptop"</span>,
+        <span class="str">"quantity"</span>: <span class="cc">3.5</span>,
+        <span class="str">"price"</span>: <span class="num">200</span>
+    }
+    <span class="cm">    # external_data is a plain Python dict.
+    # The name 'external_data' signals this represents data from OUTSIDE
+    # the application: a REST API response, a database row, a JSON file,
+    # form submission, CSV row, or LLM output.
+    # It contains 3.5 for quantity — same bad value as File 2.</span>
+
+    <span class="var">p1</span> = <span class="pc">Product</span>(<span class="uc">**</span><span class="xc">external_data</span>)
+    <span class="cm">    # **external_data = "unpack this dict as keyword arguments".
+    # Equivalent to:
+    #   Product(name="Laptop", quantity=3.5, price=200)
+    #
+    # Python expands the dict: each key becomes a parameter name,
+    # each value becomes the argument.
+    # This is how ALL of these work:
+    #   pydantic_ai LLM output → Product(**llm_json)
+    #   FastAPI request body   → Product(**request.dict())
+    #   CSV row parsing        → Product(**row)
+    #   database record        → Product(**db_row._asdict())
+    #
+    # Pydantic validates: quantity=3.5 → int field → lossy → ValidationError.</span>
+
+    <span class="fn">print</span>(<span class="var">p1</span>)   <span class="cm"># ← NEVER REACHED</span>
+
+<span class="kw">except</span> <span class="ec">ValidationError</span> <span class="kw">as</span> <span class="var">e</span>:
+    <span class="fn">print</span>(<span class="var">e</span>)
+    <span class="cm">    # Same output as File 2 — the error is identical because the bad
+    # data is identical. The pattern (dict → unpack → validate) is the
+    # real lesson, not the specific error.
+    #
+    # IN PRODUCTION you'd log this, return an HTTP 422, or retry:
+    #   import logging
+    #   logging.error(f"Invalid product data: {e.errors()}")
+    #   return {"error": "Invalid input", "details": e.errors()}</span></pre>
+
+    <div class="callout green" style="margin-top:8px">
+      <div class="callout-title">🚀 The Full Connection to pydantic_ai</div>
+      <p>
+        When you write <code>Agent(output_type=ProfileInfo)</code>, pydantic_ai internally does exactly File 3's pattern every time the LLM responds:<br/><br/>
+        <code>llm_json = {"name": "John", "experience_years": 5, "skills": [...]}</code><br/>
+        <code>result = ProfileInfo(**llm_json)  # ← Pydantic validates!</code><br/><br/>
+        If the LLM returns <code>"experience_years": "five"</code> — Pydantic raises <code>ValidationError</code> and pydantic_ai retries the call with the error as feedback to the LLM. That's the closed-loop validation you saw in Week 5 — and now you understand every layer of how it works.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>⚡ GenAI Mentor · Folder 4.1.1 AutoValidation · algo-genai-2026</div>
+  <div style="margin-top:6px;color:#131e3a">Trust the data. Validate at the boundary. 🛡️</div>
+</div>
+
+</body>
+</html>

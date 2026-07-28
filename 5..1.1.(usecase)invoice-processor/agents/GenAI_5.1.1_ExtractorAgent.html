@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>extractor_agent.py — GenAI Mentor</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#07080f;--surface:#0e0f18;--card:#12131c;--border:#1c1e30;
+  --ctx:#ff6eb4;--dep:#ffd166;--task:#06d6a0;--log:#4dabf7;
+  --purple:#b197fc;--orange:#ff9f43;--cyan:#22d3ee;--red:#ff6b6b;--lime:#a9e34b;
+  --text:#e8eaf6;--muted:#464866;--code-bg:#09090f;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;font-size:15px;line-height:1.75;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.35}
+
+/* HERO */
+.hero{padding:70px 32px 50px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 65% 45% at 50% 0%,rgba(255,110,180,.11),transparent 65%)}
+.tag{display:inline-block;background:rgba(255,110,180,.1);border:1px solid rgba(255,110,180,.3);color:var(--ctx);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;padding:5px 16px;border-radius:4px;margin-bottom:20px;text-transform:uppercase}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5vw,3.3rem);font-weight:800;line-height:1.1;margin-bottom:14px;background:linear-gradient(135deg,#fff 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .sub{font-size:1rem;color:var(--muted);max-width:600px;margin:0 auto 24px;font-weight:600}
+.kids-note{display:inline-flex;align-items:center;gap:10px;background:rgba(6,214,160,.07);border:1px dashed rgba(6,214,160,.3);border-radius:12px;padding:10px 22px;color:var(--task);font-size:.9rem;font-weight:800;margin-bottom:36px}
+
+/* BADGE ROW */
+.badge-row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:40px}
+.fbadge{display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:30px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:800;border:1.5px solid}
+.fbadge.pink  {color:var(--ctx); border-color:var(--ctx); background:rgba(255,110,180,.08)}
+.fbadge.yellow{color:var(--dep); border-color:var(--dep); background:rgba(255,209,102,.08)}
+.fbadge.green {color:var(--task);border-color:var(--task);background:rgba(6,214,160,.08)}
+.fbadge.blue  {color:var(--log); border-color:var(--log); background:rgba(77,171,247,.08)}
+.fbadge.purple{color:var(--purple);border-color:var(--purple);background:rgba(177,151,252,.08)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* TOC */
+.toc{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-bottom:46px}
+.toc a{text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);padding:5px 14px;border:1px solid var(--border);border-radius:30px;transition:all .2s}
+.toc a:hover{color:var(--text);border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.04)}
+
+.container{max-width:1060px;margin:0 auto;padding:0 32px}
+
+/* SEC */
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.sec-title{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,3vw,2.1rem);font-weight:800;margin-bottom:30px;line-height:1.2}
+
+/* SPOTLIGHT */
+.spotlight{background:linear-gradient(135deg,rgba(255,110,180,.07),rgba(255,209,102,.07));border:1px solid rgba(255,110,180,.25);border-radius:16px;padding:28px 34px;margin-bottom:50px}
+.spotlight h3{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:var(--ctx);margin-bottom:12px}
+.spotlight p{font-size:.9rem;color:#94a3b8;line-height:1.75;margin-bottom:8px}
+.spotlight code{background:rgba(255,255,255,.08);padding:2px 8px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4}
+
+/* CONCEPT CARDS */
+.concepts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(262px,1fr));gap:16px;margin-bottom:60px}
+.ccard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.ccard:hover{transform:translateY(-4px)}
+.ccard::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
+.ccard.pink::after  {background:var(--ctx)}
+.ccard.yellow::after{background:var(--dep)}
+.ccard.green::after {background:var(--task)}
+.ccard.blue::after  {background:var(--log)}
+.ccard.purple::after{background:var(--purple)}
+.ccard.cyan::after  {background:var(--cyan)}
+.ccard.orange::after{background:var(--orange)}
+.ccard.lime::after  {background:var(--lime)}
+.ccard:hover.pink  {border-color:var(--ctx)}
+.ccard:hover.yellow{border-color:var(--dep)}
+.ccard:hover.green {border-color:var(--task)}
+.ccard:hover.blue  {border-color:var(--log)}
+.ccard:hover.purple{border-color:var(--purple)}
+.ccard:hover.cyan  {border-color:var(--cyan)}
+.ccard:hover.orange{border-color:var(--orange)}
+.ccard:hover.lime  {border-color:var(--lime)}
+.ccard-icon{font-size:2rem;margin-bottom:12px}
+.ccard h3{font-size:1rem;font-weight:800;margin-bottom:8px}
+.ccard p{font-size:.86rem;color:#94a3b8;line-height:1.7}
+.ccard code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#cdd6f4}
+.kid-box{margin-top:12px;background:rgba(255,255,255,.03);border-left:3px solid;border-radius:0 8px 8px 0;padding:10px 12px;font-size:.81rem;color:#94a3b8}
+.ccard.pink   .kid-box{border-color:var(--ctx)}
+.ccard.yellow .kid-box{border-color:var(--dep)}
+.ccard.green  .kid-box{border-color:var(--task)}
+.ccard.blue   .kid-box{border-color:var(--log)}
+.ccard.purple .kid-box{border-color:var(--purple)}
+.ccard.cyan   .kid-box{border-color:var(--cyan)}
+.ccard.orange .kid-box{border-color:var(--orange)}
+.ccard.lime   .kid-box{border-color:var(--lime)}
+
+/* RUNCONTEXT DIAGRAM */
+.rctx-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px;margin-bottom:60px}
+.rctx-title{font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;margin-bottom:22px;text-align:center;color:var(--ctx)}
+.rctx-flow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.rctx-box{flex:1;min-width:140px;padding:18px 16px;text-align:center;border-right:1px solid var(--border)}
+.rctx-box:last-child{border-right:none}
+.rctx-box .rb-icon{font-size:1.8rem;margin-bottom:8px}
+.rctx-box .rb-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;font-weight:800}
+.rctx-box .rb-val{font-size:.78rem;color:#94a3b8;line-height:1.6}
+.rb1{background:rgba(255,110,180,.07);}.rb1 .rb-label{color:var(--ctx)}
+.rb2{background:rgba(255,209,102,.07);}.rb2 .rb-label{color:var(--dep)}
+.rb3{background:rgba(6,214,160,.07); }.rb3 .rb-label{color:var(--task)}
+.rb4{background:rgba(77,171,247,.07);}.rb4 .rb-label{color:var(--log)}
+
+/* CREATE_TASK vs GATHER */
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:50px}
+.cmp-card{border-radius:14px;padding:22px;border:1px solid}
+.cmp-card.old{background:rgba(255,159,67,.05);border-color:rgba(255,159,67,.2)}
+.cmp-card.new{background:rgba(6,214,160,.05); border-color:rgba(6,214,160,.2)}
+.cmp-card h5{font-size:.92rem;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.cmp-card.old h5{color:var(--orange)}
+.cmp-card.new h5{color:var(--task)}
+.cmp-card pre{font-size:11.5px;padding:0;background:transparent;border:none;color:#94a3b8;line-height:1.9;overflow-x:auto;font-family:'JetBrains Mono',monospace}
+.cmp-card ul{list-style:none;padding:0;margin-top:12px}
+.cmp-card ul li{font-size:.8rem;color:#94a3b8;padding:2px 0;display:flex;gap:7px}
+.cmp-card ul li::before{content:'▸';flex-shrink:0;color:inherit;opacity:.7}
+.cmp-card.old ul li::before{color:var(--orange)}
+.cmp-card.new ul li::before{color:var(--task)}
+
+/* INFO BOXES */
+.ibox-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(275px,1fr));gap:12px;margin-top:14px;margin-bottom:20px}
+.ibox{border-radius:12px;padding:16px 18px;border:1px solid}
+.ibox.warn  {background:rgba(255,159,67,.05);border-color:rgba(255,159,67,.2)}
+.ibox.good  {background:rgba(6,214,160,.05); border-color:rgba(6,214,160,.2)}
+.ibox.info  {background:rgba(77,171,247,.05);border-color:rgba(77,171,247,.2)}
+.ibox.pink  {background:rgba(255,110,180,.05);border-color:rgba(255,110,180,.2)}
+.ibox.purple{background:rgba(177,151,252,.05);border-color:rgba(177,151,252,.2)}
+.ibox.red   {background:rgba(255,107,107,.05);border-color:rgba(255,107,107,.2)}
+.ibox h4{font-size:.9rem;font-weight:800;margin-bottom:7px;display:flex;align-items:center;gap:7px}
+.ibox.warn   h4{color:var(--orange)}
+.ibox.good   h4{color:var(--task)}
+.ibox.info   h4{color:var(--log)}
+.ibox.pink   h4{color:var(--ctx)}
+.ibox.purple h4{color:var(--purple)}
+.ibox.red    h4{color:var(--red)}
+.ibox ul{list-style:none;padding:0}
+.ibox ul li{font-size:.81rem;color:#94a3b8;padding:2px 0;display:flex;gap:7px}
+.ibox ul li::before{content:'▸';flex-shrink:0;color:inherit;opacity:.7}
+
+/* BUG HIGHLIGHT */
+.bug{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.25);border-radius:10px;padding:14px 18px;margin:12px 0;font-size:.85rem;color:#94a3b8}
+.bug strong{color:var(--red)}
+.bug code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.fix{background:rgba(6,214,160,.06);border:1px solid rgba(6,214,160,.2);border-radius:10px;padding:14px 18px;margin:6px 0;font-size:.85rem;color:#94a3b8}
+.fix strong{color:var(--task)}
+.fix code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+/* CODE */
+.file-section{margin-bottom:60px}
+.file-header{display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.file-pill{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 14px;border-radius:20px;font-weight:800}
+.fp-agent{background:rgba(255,110,180,.15);color:var(--ctx)}
+.fp-init {background:rgba(177,151,252,.15);color:var(--purple)}
+.file-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
+.file-desc{font-size:.9rem;color:#94a3b8;margin-bottom:14px;font-weight:600}
+.code-wrap{background:var(--code-bg);border:1px solid var(--border);border-radius:15px;overflow:hidden}
+.ctoolbar{background:#0c0d15;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:8px}
+.dr{width:11px;height:11px;border-radius:50%;background:#ff5f57}
+.dy{width:11px;height:11px;border-radius:50%;background:#febc2e}
+.dg{width:11px;height:11px;border-radius:50%;background:#28c840}
+.cfn{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-left:auto}
+pre{padding:24px 28px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:2;tab-size:4}
+.k {color:#b197fc}
+.f {color:#74c7ec}
+.s {color:#a6e3a1}
+.cm{color:#22d3ee;font-style:italic;font-weight:700}
+.c {color:#2a2d45;font-style:italic}
+.nu{color:#fab387}
+.m {color:#f38ba8}
+.v {color:#cdd6f4}
+.p {color:#585b70}
+.t {color:#ffd166}
+.dec{color:#ff9f43;font-weight:700}
+.hi-pink{background:rgba(255,110,180,.12);border-radius:4px;padding:0 3px}
+.hi-yellow{background:rgba(255,209,102,.1);border-radius:4px;padding:0 3px}
+
+/* GOTCHAS */
+.gotcha-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;margin-bottom:60px}
+.gcrd{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:20px;border-left:4px solid}
+.gcrd.w {border-left-color:var(--orange)}
+.gcrd.g {border-left-color:var(--task)}
+.gcrd.b {border-left-color:var(--log)}
+.gcrd.p {border-left-color:var(--purple)}
+.gcrd.r {border-left-color:var(--red)}
+.gcrd.pk{border-left-color:var(--ctx)}
+.gcrd.y {border-left-color:var(--dep)}
+.gcrd h4{font-size:.92rem;font-weight:800;margin-bottom:7px;display:flex;gap:8px;align-items:center}
+.gcrd.w  h4{color:var(--orange)}
+.gcrd.g  h4{color:var(--task)}
+.gcrd.b  h4{color:var(--log)}
+.gcrd.p  h4{color:var(--purple)}
+.gcrd.r  h4{color:var(--red)}
+.gcrd.pk h4{color:var(--ctx)}
+.gcrd.y  h4{color:var(--dep)}
+.gcrd p{font-size:.82rem;color:#94a3b8}
+.gcrd code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+/* CHEATSHEET */
+.cheatsheet{background:linear-gradient(135deg,rgba(255,110,180,.06),rgba(6,214,160,.06));border:1px solid rgba(255,110,180,.2);border-radius:16px;padding:30px;margin-bottom:58px}
+.cheatsheet h3{font-family:'Syne',sans-serif;font-size:1.2rem;color:var(--ctx);margin-bottom:20px}
+.cs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cs-item{background:rgba(0,0,0,.35);border-radius:10px;padding:14px}
+.cs-head{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;font-weight:800}
+.cs-val{font-size:.81rem;color:#94a3b8;line-height:1.65}
+
+/* DIVIDER */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:52px 0}
+
+/* STEPS */
+.steps{display:flex;flex-direction:column;gap:10px;margin-bottom:40px}
+.step{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+.step-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.85rem;flex-shrink:0;margin-top:2px}
+.step-body h4{font-size:.93rem;font-weight:800;margin-bottom:4px}
+.step-body p{font-size:.84rem;color:#94a3b8}
+.step-body code{background:rgba(255,255,255,.07);padding:1px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#cdd6f4}
+
+footer{text-align:center;padding:36px;color:var(--muted);font-size:.77rem;font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border)}
+@media(max-width:600px){.compare-wrap{grid-template-columns:1fr}.rctx-flow{flex-direction:column}.rctx-box{border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="tag">🤖 GenAI Mentor · Deep Dive #7</div>
+  <h1>Dynamic Instructions,<br/>RunContext &amp; create_task()</h1>
+  <p class="sub"><code>extractor_agent.py</code> — the most advanced agent yet. Dynamic per-call instructions, dependency injection, task scheduling, and Logfire observability all in one file.</p>
+  <div class="kids-note">🧒 Explained like you're 13 — the coolest new tricks in this whole series</div>
+
+  <div class="badge-row">
+    <div class="fbadge pink"><div class="dot"></div>@agent.instructions decorator</div>
+    <div class="fbadge yellow"><div class="dot"></div>RunContext + deps</div>
+    <div class="fbadge green"><div class="dot"></div>asyncio.create_task()</div>
+    <div class="fbadge blue"><div class="dot"></div>Logfire tracing</div>
+    <div class="fbadge purple"><div class="dot"></div>image_paths[0] — first page only</div>
+  </div>
+
+  <nav class="toc">
+    <a href="#bigpic">🗺 What's New</a>
+    <a href="#concepts">🧠 Concepts</a>
+    <a href="#runctx">🎭 RunContext</a>
+    <a href="#createtask">⚡ create_task vs gather</a>
+    <a href="#code">📄 Full Code</a>
+    <a href="#gotchas">⚠️ Gotchas</a>
+  </nav>
+</div>
+
+<div class="container">
+
+<!-- BIG PICTURE -->
+<section id="bigpic">
+  <div class="sec-label">Start Here</div>
+  <div class="sec-title">🗺 The 4 Big Upgrades in This File</div>
+
+  <div class="spotlight">
+    <h3>This is the most advanced agent file in the series — everything clicks together here</h3>
+    <p>Previous files used <strong>static</strong> agent instructions set once at startup. This file introduces a <strong>dynamic instruction function</strong> that runs fresh on every single agent call, injecting runtime context (the company name) directly into the system prompt.</p>
+    <p>It also switches from <code>asyncio.gather()</code> to <code>asyncio.create_task()</code> for scheduling — a subtle but powerful difference that lets tasks start running <strong>immediately</strong> as they're created rather than waiting for a gather call.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num" style="background:rgba(255,110,180,.15);color:var(--ctx)">1</div>
+      <div class="step-body">
+        <h4>🎭 @extraction_agent.instructions — Dynamic System Prompt</h4>
+        <p>Instead of a static <code>instructions="..."</code> string, a <strong>decorated function</strong> runs on every agent call. It receives <code>RunContext</code> with the current <code>deps</code> (dependencies) and returns a fresh instruction string — personalised per call.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num" style="background:rgba(255,209,102,.15);color:var(--dep)">2</div>
+      <div class="step-body">
+        <h4>🔑 RunContext[str] + deps="TechNova Solutions"</h4>
+        <p><code>ctx.deps</code> holds whatever you pass as <code>deps=</code> in <code>agent.run(..., deps="TechNova Solutions, Inc.")</code>. The type parameter <code>[str]</code> declares that deps will be a string. This is PydanticAI's <strong>dependency injection</strong> system.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num" style="background:rgba(6,214,160,.15);color:var(--task)">3</div>
+      <div class="step-body">
+        <h4>⚡ asyncio.create_task() — Schedule NOW, gather LATER</h4>
+        <p>Unlike building a list of coroutines and then passing to gather, <code>create_task()</code> <strong>starts the task immediately</strong> on the event loop as soon as it's called. Tasks run concurrently in the background while the for-loop continues creating more tasks.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num" style="background:rgba(77,171,247,.15);color:var(--log)">4</div>
+      <div class="step-body">
+        <h4>📡 Logfire — Full Observability Stack</h4>
+        <p><code>logfire.configure()</code> + <code>logfire.instrument_pydantic_ai()</code> automatically traces every agent run: model called, tokens used, latency, input/output — all visible in the Logfire dashboard. Production-grade monitoring for free.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CONCEPTS -->
+<section id="concepts">
+  <div class="sec-label">Section 01</div>
+  <div class="sec-title">🧠 Every New Concept Explained</div>
+
+  <div class="concepts-grid">
+
+    <div class="ccard pink">
+      <div class="ccard-icon">🎭</div>
+      <h3>@agent.instructions Decorator</h3>
+      <p>Decorating a function with <code>@extraction_agent.instructions</code> registers it as the <strong>dynamic instruction generator</strong>. Every time the agent runs, it calls this function first to build the system prompt. The function receives <code>RunContext</code> as its argument.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a coach who gives a different pre-game pep talk depending on which team they're playing tonight. The talk (instructions) changes per match (per call). Without the decorator — same talk every time.</div>
+    </div>
+
+    <div class="ccard yellow">
+      <div class="ccard-icon">🔑</div>
+      <h3>RunContext[T] — Dependency Injection</h3>
+      <p><code>RunContext[str]</code> is a typed container that PydanticAI passes to your instruction function, tools, and validators during an agent run. <code>ctx.deps</code> holds whatever was passed as <code>deps=</code> in <code>agent.run()</code>. The <code>[str]</code> is the type of <code>deps</code>.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a work order envelope handed to a worker when they start a job. Inside it says "this job is for: TechNova Solutions." The worker reads it and customises their work accordingly.</div>
+    </div>
+
+    <div class="ccard green">
+      <div class="ccard-icon">⚡</div>
+      <h3>asyncio.create_task() — Immediate Scheduling</h3>
+      <p><code>asyncio.create_task(coro)</code> wraps a coroutine in a <code>Task</code> and <strong>schedules it on the event loop right now</strong>. The task starts running as soon as the current coroutine hits an <code>await</code>. Contrast with building a list of unawaited coroutines for gather.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> putting a pizza order in the oven right away vs collecting all orders first and putting them all in at once. create_task = in the oven now. gather pattern = wait, collect all, then bake together.</div>
+    </div>
+
+    <div class="ccard blue">
+      <div class="ccard-icon">📡</div>
+      <h3>Logfire Observability</h3>
+      <p><code>logfire.instrument_pydantic_ai()</code> monkey-patches PydanticAI's agent run methods to automatically emit structured spans — start time, model name, token counts, latency, input prompt, output — to the Logfire cloud dashboard. Zero manual logging needed.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> installing a black box recorder in a plane. Every flight (agent run) is automatically logged. If something goes wrong, you can replay exactly what happened and when.</div>
+    </div>
+
+    <div class="ccard purple">
+      <div class="ccard-icon">🔒</div>
+      <h3>deps= — Runtime Context Injection</h3>
+      <p><code>agent.run(message, deps="TechNova Solutions, Inc.")</code> — the <code>deps</code> parameter passes data into the agent run that is accessible in instruction functions, tool functions, and result validators via <code>ctx.deps</code>. Changes per call without changing the agent definition.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a restaurant waiter who's told "Table 5's special guest is VIP — treat accordingly." The same waiter (agent), different instructions based on who the guest (deps) is.</div>
+    </div>
+
+    <div class="ccard cyan">
+      <div class="ccard-icon">🖼</div>
+      <h3>image_paths[0] — First Page Only</h3>
+      <p><code>pdf_to_jpg()</code> returns a list of JPEG paths (one per PDF page). This file uses <code>image_paths[0]</code> — only the <strong>first page</strong> is sent to the AI. This assumes invoices fit on one page. If the PDF has multiple pages, the rest are silently ignored.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> scanning a stack of papers but only reading the top sheet. Fine if invoices are always 1 page — a bug if they're sometimes 2+ pages.</div>
+    </div>
+
+    <div class="ccard orange">
+      <div class="ccard-icon">📋</div>
+      <h3>invoices_filenames list — Tracking PDFs</h3>
+      <p>The function maintains a parallel list <code>invoices_filenames</code> alongside <code>tasks</code>. This allows the caller to match each result back to its source PDF path. Since <code>tqdm_asyncio.gather()</code> preserves order, index 0 of results matches index 0 of filenames.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> keeping a numbered ticket for each coat you hand in at a cloakroom. When you get results back, you know which coat (PDF) belongs to which ticket (result).</div>
+    </div>
+
+    <div class="ccard lime">
+      <div class="ccard-icon">💬</div>
+      <h3>f-string in Dynamic Instructions</h3>
+      <p>The instruction function returns an <strong>f-string</strong>: <code>f"...for the company {ctx.deps}..."</code>. At runtime, <code>{ctx.deps}</code> is replaced with the actual company name. This means the system prompt itself is dynamically personalised — a form of prompt engineering at scale.</p>
+      <div class="kid-box">🧒 <strong>Like:</strong> a letter template with a blank for the recipient's name. Every time you send it, the name changes — but the rest of the letter stays the same.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- RUNCONTEXT DEEP DIVE -->
+<section id="runctx">
+  <div class="sec-label">Section 02 — Deep Dive</div>
+  <div class="sec-title">🎭 How RunContext + deps Flows Through the Agent</div>
+
+  <div class="rctx-wrap">
+    <div class="rctx-title">Data flows from agent.run(deps=...) → RunContext → dynamic instruction → system prompt</div>
+    <div class="rctx-flow">
+      <div class="rctx-box rb1">
+        <div class="rb-icon">📞</div>
+        <div class="rb-label">Call Site</div>
+        <div class="rb-val"><code>agent.run(<br/>message,<br/>deps="TechNova"<br/>)</code></div>
+      </div>
+      <div class="rctx-box rb2">
+        <div class="rb-icon">📦</div>
+        <div class="rb-label">RunContext created</div>
+        <div class="rb-val">PydanticAI wraps deps in <code>RunContext[str]</code> object. <code>ctx.deps = "TechNova"</code></div>
+      </div>
+      <div class="rctx-box rb3">
+        <div class="rb-icon">🎭</div>
+        <div class="rb-label">Instruction fn called</div>
+        <div class="rb-val"><code>dynamic_instruction(ctx)</code> runs. Returns f-string with company name injected.</div>
+      </div>
+      <div class="rctx-box rb4">
+        <div class="rb-icon">🤖</div>
+        <div class="rb-label">System Prompt sent</div>
+        <div class="rb-val">GPT-4o receives personalised system prompt: "...for company TechNova Solutions, Inc."</div>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding:16px;background:rgba(255,255,255,.03);border-radius:10px">
+      <p style="font-size:.82rem;color:#94a3b8"><strong style="color:var(--ctx)">Why is this powerful?</strong> You can call the same agent for hundreds of different companies in a loop — each call gets its own personalised system prompt — without creating 100 different Agent instances. One agent, infinite contexts.</p>
+    </div>
+  </div>
+
+  <div class="ibox-row">
+    <div class="ibox pink"><h4>💡 RunContext can hold any type</h4><ul>
+      <li><code>RunContext[str]</code> — deps is a string (company name)</li>
+      <li><code>RunContext[dict]</code> — deps is a dict with many values</li>
+      <li><code>RunContext[MyDataClass]</code> — deps is a custom object</li>
+      <li>The type parameter is just for type checking — any picklable value works</li>
+    </ul></div>
+    <div class="ibox good"><h4>✅ deps is also available in @agent.tool</h4><ul>
+      <li>Not just instructions — tool functions also receive <code>ctx: RunContext</code></li>
+      <li>Use it to pass database connections, user IDs, API clients into tools</li>
+      <li>This is PydanticAI's dependency injection — like FastAPI's Depends()</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- CREATE_TASK vs GATHER -->
+<section id="createtask">
+  <div class="sec-label">Section 03 — Important Async Pattern Shift</div>
+  <div class="sec-title">⚡ asyncio.create_task() vs the Old Gather Pattern</div>
+
+  <div class="compare-wrap">
+    <div class="cmp-card old">
+      <h5>🟡 Old Pattern — coroutines in a list</h5>
+      <pre><span style="color:#94a3b8">tasks = [
+  run_inference(path)
+  for path in image_paths
+]
+# ← coroutines created but NOT started
+
+results = await asyncio.gather(*tasks)
+# ← only NOW do they all start running</span></pre>
+      <ul>
+        <li>Coroutines created but sit idle until gather()</li>
+        <li>All start simultaneously at gather() point</li>
+        <li>Simple and predictable</li>
+        <li>Common pattern — easy to reason about</li>
+      </ul>
+    </div>
+    <div class="cmp-card new">
+      <h5>🟢 New Pattern — create_task() immediately</h5>
+      <pre><span style="color:#94a3b8">tasks = []
+for pdf_path in pdf_paths:
+    image_paths = pdf_to_jpg(...)
+    task = asyncio.create_task(
+        run_inference(image_paths[0])
+    )  # ← STARTS NOW on event loop!
+    tasks.append(task)
+
+results = await tqdm_asyncio.gather(*tasks)
+# ← waits for already-running tasks</span></pre>
+      <ul>
+        <li>Each task starts the moment it's created</li>
+        <li>Tasks overlap with the PDF-to-JPG conversion of next file</li>
+        <li>Event loop begins work immediately at first await</li>
+        <li>Slightly more throughput for mixed sync+async workflows</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ibox-row">
+    <div class="ibox warn"><h4>⚠️ create_task() needs a running event loop</h4><ul>
+      <li><code>asyncio.create_task()</code> must be called from inside an <code>async def</code> function</li>
+      <li>Calling it at module level (outside async context) → <code>RuntimeError: no running event loop</code></li>
+      <li>Here it's called inside <code>async def extract_invoices_data()</code> — correct!</li>
+    </ul></div>
+    <div class="ibox good"><h4>✅ Both patterns produce the same final results</h4><ul>
+      <li>Order is preserved by <code>tqdm_asyncio.gather()</code> in both cases</li>
+      <li>create_task() may give marginal speed improvement in this specific loop</li>
+      <li>For pure IO-bound work without setup overhead, the difference is tiny</li>
+    </ul></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FULL CODE -->
+<section id="code" class="file-section">
+  <div class="sec-label">File — Full Annotated Walkthrough</div>
+  <div class="file-header">
+    <span class="file-pill fp-agent">EXTRACTOR AGENT</span>
+    <span class="file-name">extractor_agent.py</span>
+  </div>
+  <p class="file-desc">Invoice-specific extraction agent with dynamic instructions, RunContext dependency injection, and immediate task scheduling. The most production-ready agent in the series.</p>
+
+  <div class="code-wrap">
+    <div class="ctoolbar"><div class="dr"></div><div class="dy"></div><div class="dg"></div><span class="cfn">extractor_agent.py</span></div>
+    <pre><span class="c"># ═══ IMPORTS ══════════════════════════════════════════════════════════════</span>
+<span class="k">from</span> <span class="m">pathlib</span> <span class="k">import</span> <span class="t">Path</span>
+<span class="k">from</span> <span class="m">pydantic_ai</span> <span class="k">import</span> <span class="f">Agent</span><span class="p">,</span> <span class="f">BinaryContent</span><span class="p">,</span> <span class="f">RunContext</span>
+<span class="cm"># ☝️ RunContext — NEW import! Carries runtime dependencies into instruction/tool fns</span>
+<span class="k">from</span> <span class="m">pydantic_ai.models.openai</span> <span class="k">import</span> <span class="f">OpenAIChatModel</span>
+<span class="k">from</span> <span class="m">pydantic_ai.providers.github</span> <span class="k">import</span> <span class="f">GitHubProvider</span>
+<span class="k">from</span> <span class="m">pydantic_ai.models.groq</span> <span class="k">import</span> <span class="f">GroqModel</span>
+<span class="k">from</span> <span class="m">pydantic_ai.providers.groq</span> <span class="k">import</span> <span class="f">GroqProvider</span>
+<span class="k">from</span> <span class="m">pydantic_ai.settings</span> <span class="k">import</span> <span class="f">ModelSettings</span>
+<span class="k">from</span> <span class="m">tqdm.asyncio</span> <span class="k">import</span> <span class="f">tqdm_asyncio</span>
+<span class="k">import</span> <span class="m">asyncio</span>
+<span class="k">import</span> <span class="m">os</span>
+<span class="k">import</span> <span class="m">logfire</span>                          <span class="cm"># 📡 observability + tracing</span>
+<span class="k">from</span> <span class="m">dotenv</span> <span class="k">import</span> <span class="f">load_dotenv</span>
+<span class="k">from</span> <span class="m">models.invoice</span> <span class="k">import</span> <span class="t">Invoice</span>       <span class="cm"># 🧾 strict invoice Pydantic schema</span>
+<span class="k">from</span> <span class="m">utils.utils</span> <span class="k">import</span> <span class="f">pdf_to_jpg</span><span class="p">,</span> <span class="f">list_all_files</span>
+<span class="cm"># ☝️ Imports from utils.utils → utils/ is a package (has __init__.py),
+#    utils.py is the module inside it. "utils.utils" = package.module.</span>
+
+
+<span class="c"># ═══ SETUP ════════════════════════════════════════════════════════════════</span>
+<span class="f">load_dotenv</span><span class="p">(</span>override<span class="p">=</span><span class="k">True</span><span class="p">)</span>
+<span class="f">logfire</span><span class="p">.</span><span class="f">configure</span><span class="p">()</span>                    <span class="cm"># connects to Logfire cloud (reads LOGFIRE_TOKEN from env)</span>
+<span class="f">logfire</span><span class="p">.</span><span class="f">instrument_pydantic_ai</span><span class="p">()</span>       <span class="cm"># monkey-patches Agent.run() to auto-emit traces</span>
+<span class="cm"># ☝️ After this call, every agent.run() automatically records:
+#    → which model was called
+#    → how many tokens were used (input + output)
+#    → total latency in ms
+#    → the full prompt + response (optional, configurable)
+#    All visible at logfire.dev dashboard — zero manual logging needed.</span>
+
+
+<span class="c"># ═══ MODEL SELECTION ══════════════════════════════════════════════════════</span>
+<span class="v">model</span> <span class="p">=</span> <span class="f">OpenAIChatModel</span><span class="p">(</span>
+    <span class="s">"openai/gpt-4o"</span><span class="p">,</span>
+    provider<span class="p">=</span><span class="f">GitHubProvider</span><span class="p">(</span>api_key<span class="p">=</span><span class="v">os</span><span class="p">.</span><span class="f">getenv</span><span class="p">(</span><span class="s">"GITHUB_API_KEY"</span><span class="p">)),</span>
+    settings<span class="p">=</span><span class="f">ModelSettings</span><span class="p">(</span>temperature<span class="p">=</span><span class="nu">0</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="c">#model = GroqModel('meta-llama/llama-4-scout-17b-16e-instruct', ...)</span>
+<span class="cm"># ☝️ Groq model is COMMENTED OUT this time — GPT-4o is active.
+#    Opposite of generic_doc_agent.py where Groq was active.
+#    Comment/uncomment the line to switch. Same "quick-swap" pattern.</span>
+
+
+<span class="c"># ═══ AGENT — No static instructions here! ════════════════════════════════</span>
+<span class="v">extraction_agent</span> <span class="p">=</span> <span class="f">Agent</span><span class="p">(</span>
+    model<span class="p">=</span><span class="v">model</span><span class="p">,</span>
+    output_type<span class="p">=</span><span class="t">Invoice</span><span class="p">,</span>              <span class="cm"># 🧾 AI must return a fully-structured Invoice object</span>
+<span class="p">)</span>
+<span class="cm"># ☝️ Notice: NO instructions= parameter here!
+#    Instructions are provided dynamically via the decorator below.
+#    Static + dynamic instructions CAN coexist — dynamic ones are appended.</span>
+
+
+<span class="c"># ═══ DYNAMIC INSTRUCTIONS — THE KEY INNOVATION ════════════════════════════</span>
+<span class="dec">@extraction_agent.instructions</span>
+<span class="k">def</span> <span class="f">dynamic_instruction</span><span class="p">(</span>ctx<span class="p">:</span><span class="t">RunContext</span><span class="p">[</span><span class="t">str</span><span class="p">])</span> <span class="p">-></span> <span class="t">str</span><span class="p">:</span>
+    <span class="cm"># ☝️ @extraction_agent.instructions registers this function as the
+    #    instruction generator. Called ONCE per agent.run() call.
+    #    ctx: RunContext[str] → ctx.deps is a str (the company name)
+    #    The [str] generic tells the type checker what deps will be.</span>
+
+     <span class="k">return</span> <span class="s">f"""You are an AI assistant specialized in extracting information from invoice images for the company </span><span class="hi-yellow">{ctx.deps}</span><span class="s">.</span>
+<span class="s">        Your task is to analyze the given invoice image and extract the relevant information.</span>
+<span class="s">        If a field is not present in the invoice or cannot be determined leave it as null.</span>
+<span class="s">        If the invoice date format is ambiguous, assume it's the international date format dd-mm-yyyy."""</span>
+<span class="cm"># ☝️ {ctx.deps} is replaced with "TechNova Solutions, Inc." at runtime.
+#    This makes the system prompt company-specific.
+#    Call the same agent for a different company? Just pass a different deps= string.
+#    The AI now "knows" which company it's extracting invoices for.</span>
+
+
+<span class="c"># ═══ run_inference — process ONE invoice image ════════════════════════════</span>
+<span class="k">async def</span> <span class="f">run_inference</span><span class="p">(</span>image_path<span class="p">:</span> <span class="t">Path</span><span class="p">)</span> <span class="p">-></span> <span class="t">Invoice</span><span class="p">:</span>
+    extractor_message_parts <span class="p">=</span> <span class="p">[</span>
+        <span class="s">"Extract the structure from the provided document."</span><span class="p">,</span>
+        <span class="f">BinaryContent</span><span class="p">(</span>data<span class="p">=</span>image_path<span class="p">.</span><span class="f">read_bytes</span><span class="p">(),</span> media_type<span class="p">=</span><span class="s">"image/jpeg"</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"##File analyzed: {image_path.stem}"</span><span class="p">)</span>
+
+        extraction_response <span class="p">=</span> <span class="k">await</span> <span class="v">extraction_agent</span><span class="p">.</span><span class="f">run</span><span class="p">(</span>
+            extractor_message_parts<span class="p">,</span>
+            deps<span class="p">=</span><span class="s">"TechNova Solutions, Inc."</span>
+            <span class="cm"># ☝️ deps= is passed here at CALL TIME.
+            #    This value flows into ctx.deps inside dynamic_instruction().
+            #    The system prompt will say: "...for the company TechNova Solutions, Inc."
+            #    To process invoices for a different client: change this string!
+            #    In production: pass this as a parameter to run_inference() instead.</span>
+        <span class="p">)</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"\n##Extracted data: \n{extraction_response.output}"</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="t">Exception</span> <span class="k">as</span> e<span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span><span class="s">f"Unexpected error while inference: {e}"</span><span class="p">)</span>
+        <span class="k">raise</span> e     <span class="cm"># re-raise original exception (prefer bare 'raise' in prod)</span>
+
+    <span class="k">return</span> extraction_response<span class="p">.</span>output   <span class="cm"># validated Invoice Pydantic object</span>
+
+
+<span class="c"># ═══ extract_invoices_data — ORCHESTRATOR ════════════════════════════════</span>
+<span class="k">async def</span> <span class="f">extract_invoices_data</span><span class="p">(</span>invoices_dir<span class="p">:</span><span class="t">Path</span><span class="p">,</span> temp_dir<span class="p">:</span><span class="t">Path</span><span class="p">):</span>
+    <span class="v">invoices_filenames</span> <span class="p">=</span> <span class="p">[]</span>   <span class="cm"># tracks source PDF paths in same order as tasks</span>
+    <span class="v">tasks</span> <span class="p">=</span> <span class="p">[]</span>                <span class="cm"># accumulates Task objects (already scheduled!)</span>
+
+    <span class="f">print</span><span class="p">(</span><span class="s">'Extracting the invoices data'</span><span class="p">)</span>
+    <span class="v">pdf_paths</span> <span class="p">=</span> <span class="f">list_all_files</span><span class="p">(</span>invoices_dir<span class="p">)</span>   <span class="cm"># find all PDF files in directory</span>
+
+    <span class="k">for</span> <span class="v">pdf_path</span> <span class="k">in</span> <span class="v">pdf_paths</span><span class="p">:</span>
+        <span class="f">print</span><span class="p">(</span><span class="v">pdf_path</span><span class="p">)</span>
+        <span class="v">invoices_filenames</span><span class="p">.</span><span class="f">append</span><span class="p">(</span><span class="v">pdf_path</span><span class="p">)</span>      <span class="cm"># track filename BEFORE creating task</span>
+
+        <span class="v">image_paths</span> <span class="p">=</span> <span class="f">pdf_to_jpg</span><span class="p">(</span><span class="v">pdf_path</span><span class="p">,</span> <span class="v">temp_dir</span><span class="p">)</span>
+        <span class="cm"># ☝️ This is SYNCHRONOUS — pdf_to_jpg blocks while rendering pages.
+        #    The event loop cannot switch to another coroutine during this call.
+        #    For production with many large PDFs, consider running in a thread pool.</span>
+
+        <span class="v">task</span> <span class="p">=</span> <span class="v">asyncio</span><span class="p">.</span><span class="f">create_task</span><span class="p">(</span><span class="f">run_inference</span><span class="p">(</span><span class="v">image_paths</span><span class="p">[</span><span class="nu">0</span><span class="p">]))</span>
+        <span class="cm"># ☝️ image_paths[0] → FIRST PAGE ONLY. Multi-page invoice detection is skipped.
+        #    asyncio.create_task() → wraps coroutine in a Task and schedules it NOW.
+        #    The task begins running as soon as the loop hits the next 'await'.
+        #    It does NOT wait for the for-loop to finish before starting!</span>
+        <span class="v">tasks</span><span class="p">.</span><span class="f">append</span><span class="p">(</span><span class="v">task</span><span class="p">)</span>
+
+    <span class="v">invoices_result</span> <span class="p">=</span> <span class="k">await</span> <span class="v">tqdm_asyncio</span><span class="p">.</span><span class="f">gather</span><span class="p">(</span><span class="p">*</span><span class="v">tasks</span><span class="p">)</span>
+    <span class="cm"># ☝️ By this point, tasks are ALREADY running (started during the loop's awaits).
+    #    gather() here means: "wait until all of them finish."
+    #    tqdm wraps it with a live progress bar.
+    #    Results preserved in SAME ORDER as tasks list → matches invoices_filenames.</span>
+
+    <span class="k">return</span> <span class="v">invoices_filenames</span><span class="p">,</span> <span class="v">invoices_result</span>
+    <span class="cm"># Returns two parallel lists: (source PDF paths, extracted Invoice objects)
+    # Caller uses zip(invoices_filenames, invoices_result) to match them up.</span>
+</pre>
+  </div>
+
+  <!-- Spotted bugs/issues -->
+  <div class="bug" style="margin-top:20px">
+    <strong>⚠️ Issue 1 — deps hardcoded inside run_inference()</strong><br/><br/>
+    <code>deps="TechNova Solutions, Inc."</code> is a string literal inside <code>run_inference()</code>. If you want to process invoices for a different company, you must edit the source code. Better pattern: pass <code>company_name: str</code> as a parameter to <code>run_inference()</code> and forward it to <code>deps=</code>.
+  </div>
+  <div class="fix">
+    <strong>✅ Better pattern:</strong><br/>
+    <code>async def run_inference(image_path: Path, company: str = "TechNova") -> Invoice:</code><br/>
+    <code>&nbsp;&nbsp;&nbsp;&nbsp;await extraction_agent.run(parts, deps=company)</code>
+  </div>
+
+  <div class="bug" style="margin-top:12px">
+    <strong>⚠️ Issue 2 — image_paths[0] silently drops multi-page invoices</strong><br/><br/>
+    <code>pdf_to_jpg()</code> converts all pages, but only <code>image_paths[0]</code> (the first page) is sent to the AI. If an invoice spans 2+ pages, the additional pages are silently discarded. No error, no warning.
+  </div>
+  <div class="fix">
+    <strong>✅ Better pattern:</strong> Check <code>len(image_paths) > 1</code> and log a warning, or loop over all pages and gather their extractions, then merge results.
+  </div>
+
+  <div class="bug" style="margin-top:12px">
+    <strong>⚠️ Issue 3 — pdf_to_jpg() is synchronous inside async loop</strong><br/><br/>
+    <code>pdf_to_jpg(pdf_path, temp_dir)</code> is a regular blocking function (uses Poppler, which is CPU/IO bound). Calling it inside an <code>async def</code> loop blocks the entire event loop during PDF rendering — other async tasks can't run while it's processing.
+  </div>
+  <div class="fix">
+    <strong>✅ Fix:</strong> Wrap in <code>asyncio.get_event_loop().run_in_executor(None, pdf_to_jpg, pdf_path, temp_dir)</code> to run it in a thread pool without blocking the event loop.
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- GOTCHAS -->
+<section id="gotchas">
+  <div class="sec-label">Section 04</div>
+  <div class="sec-title">⚠️ Gotchas &amp; Best Practices</div>
+
+  <div class="gotcha-grid">
+    <div class="gcrd pk">
+      <h4>🩷 @agent.instructions vs instructions=</h4>
+      <p>Static: <code>Agent(instructions="You are...")</code> — set once, never changes.<br/>Dynamic: <code>@agent.instructions def fn(ctx)</code> — runs fresh every call.<br/>Both can coexist — static runs first, then dynamic result is appended. Use dynamic when the prompt must change per call (company, user, session).</p>
+    </div>
+    <div class="gcrd y">
+      <h4>⚠️ RunContext[T] type must match deps=</h4>
+      <p>If you declare <code>RunContext[str]</code> but pass <code>deps={"name": "TechNova"}</code> (a dict), PydanticAI won't crash at runtime — but mypy/pyright will flag the mismatch. Always match the generic type to what you actually pass in <code>deps=</code>.</p>
+    </div>
+    <div class="gcrd r">
+      <h4>🚨 create_task() needs a running event loop</h4>
+      <p>Calling <code>asyncio.create_task()</code> outside of an async context (e.g., at module level or in a sync function) raises <code>RuntimeError: no current event loop</code>. Always call it from inside an <code>async def</code> function.</p>
+    </div>
+    <div class="gcrd w">
+      <h4>⚠️ print() inside tqdm tasks looks messy</h4>
+      <p>Calling <code>print()</code> inside tasks that run under <code>tqdm_asyncio.gather()</code> will interleave with the progress bar, corrupting the terminal output. Replace with <code>tqdm.write()</code> which is tqdm-safe, or use a proper logger.</p>
+    </div>
+    <div class="gcrd b">
+      <h4>💡 Logfire adds latency — but worth it</h4>
+      <p><code>logfire.instrument_pydantic_ai()</code> adds a small overhead per agent call (sending trace data to Logfire cloud). Negligible for production LLM calls (which dominate latency anyway). For ultra-low-latency needs, configure logfire to use async export.</p>
+    </div>
+    <div class="gcrd g">
+      <h4>✅ Return type tuple is unpacked by caller</h4>
+      <p><code>return invoices_filenames, invoices_result</code> returns a tuple. Caller uses: <code>filenames, results = await extract_invoices_data(dir, tmp)</code>. The two lists are parallel-indexed — <code>filenames[i]</code> is the PDF source for <code>results[i]</code>.</p>
+    </div>
+    <div class="gcrd p">
+      <h4>🔮 Extending deps to a dataclass</h4>
+      <p>For more complex context, use a dataclass: <code>@dataclass class InvoiceCtx: company: str; user_id: str; db: Database</code>. Then <code>Agent(deps_type=InvoiceCtx)</code> and <code>RunContext[InvoiceCtx]</code>. Access via <code>ctx.deps.company</code>, <code>ctx.deps.db</code> etc. Type-safe context injection at scale.</p>
+    </div>
+    <div class="gcrd g">
+      <h4>✅ utils.utils import path explained</h4>
+      <p><code>from utils.utils import pdf_to_jpg</code> — the first <code>utils</code> is the package (folder with <code>__init__.py</code>), the second <code>utils</code> is the module (<code>utils.py</code> file inside it). If the <code>__init__.py</code> was missing, this import would fail with <code>ModuleNotFoundError</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CHEATSHEET -->
+<div class="cheatsheet">
+  <h3>🗂 extractor_agent.py Quick Reference</h3>
+  <div class="cs-grid">
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--ctx)">🎭 Dynamic Instructions</div>
+      <div class="cs-val"><code>@agent.instructions</code><br/><code>def fn(ctx: RunContext[T]) -> str:</code><br/>Called every run. Returns system prompt string.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--dep)">🔑 deps injection</div>
+      <div class="cs-val"><code>agent.run(msg, deps="value")</code><br/>Access in fn via <code>ctx.deps</code>. Works in instructions, tools, and validators.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--task)">⚡ create_task</div>
+      <div class="cs-val"><code>asyncio.create_task(coro())</code><br/>Schedules NOW. Starts running at next await. Use inside async def only.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--log)">📡 Logfire</div>
+      <div class="cs-val"><code>logfire.configure()</code><br/><code>logfire.instrument_pydantic_ai()</code><br/>Auto-traces all agent runs. Zero manual code.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--purple)">🖼 First page only</div>
+      <div class="cs-val"><code>image_paths[0]</code><br/>Only sends first PDF page to AI. Multi-page invoices silently truncated.</div>
+    </div>
+    <div class="cs-item">
+      <div class="cs-head" style="color:var(--orange)">🚫 Sync in async loop</div>
+      <div class="cs-val"><code>pdf_to_jpg()</code> is blocking inside async loop. Use <code>run_in_executor()</code> for CPU/IO heavy sync functions in async contexts.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>🤖 GenAI Mentor · extractor_agent.py · RunContext + Dynamic Instructions + create_task() Explained</footer>
+</body>
+</html>
